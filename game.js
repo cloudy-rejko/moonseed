@@ -655,15 +655,19 @@ const SHIPS = [
   prefs.ship = Math.max(0, SHIPS.findIndex(d => d.name === name));
 }
 // Draw the chosen ship at the current transform (already rotated and scaled).
+// A ship can set its own plume (outer flame, inner flame, core, as 'r,g,b') and hull line colour; the
+// default is a warm orange flame and white lines.
+const PLUME = ['255,150,70', '255,220,150', '255,255,240'];
 function drawHull(design, throttle, lineWidth) {
   if (throttle > 0.02) {
+    const [outer, inner, core] = design.plume || PLUME;
     // a layered plume: a soft warm glow, a flickering flame with a swaying tip and a white-hot core
     const t = throttle, len = (8 + 20 * t) * rand(0.85, 1.1);
     ctx.save();
     ctx.globalCompositeOperation = 'lighter';
     const gy = 6 + len * 0.3, gr = len * 0.7;
     const glow = ctx.createRadialGradient(0, gy, 0, 0, gy, gr);
-    glow.addColorStop(0, `rgba(255,170,90,${0.22 * t})`); glow.addColorStop(1, 'rgba(255,120,60,0)');
+    glow.addColorStop(0, `rgba(${outer},${0.22 * t})`); glow.addColorStop(1, `rgba(${outer},0)`);
     ctx.fillStyle = glow;
     ctx.beginPath(); ctx.arc(0, gy, gr, 0, TAU); ctx.fill();
     const lick = (w, l, c0, c1) => {  // a teardrop of flame, w wide at the nozzle and l long
@@ -676,13 +680,13 @@ function drawHull(design, throttle, lineWidth) {
       ctx.quadraticCurveTo(w * 1.2, 5 + l * 0.45, w, 5);
       ctx.closePath(); ctx.fill();
     };
-    lick(3.1, len, `rgba(255,150,70,${0.5 * t})`, 'rgba(255,90,40,0)');
-    lick(2.0, len * 0.7, `rgba(255,220,150,${0.75 * t})`, 'rgba(255,150,70,0)');
-    lick(0.9, len * 0.38, `rgba(255,255,240,${0.95 * t})`, 'rgba(255,230,180,0)');
+    lick(3.1, len, `rgba(${outer},${0.5 * t})`, `rgba(${outer},0)`);
+    lick(2.0, len * 0.7, `rgba(${inner},${0.75 * t})`, `rgba(${outer},0)`);
+    lick(0.9, len * 0.38, `rgba(${core},${0.95 * t})`, `rgba(${inner},0)`);
     ctx.restore();
   }
   ctx.lineWidth = lineWidth;
-  ctx.strokeStyle = '#eef7ff'; ctx.shadowColor = design.glow; ctx.shadowBlur = 14;
+  ctx.strokeStyle = design.line || '#eef7ff'; ctx.shadowColor = design.glow; ctx.shadowBlur = 14;
   ctx.beginPath(); design.hull(); ctx.stroke();
   ctx.fillStyle = design.glow;
   ctx.beginPath(); design.detail(); ctx.fill();
@@ -2963,6 +2967,9 @@ let predCache = null, predAge = 0;
 function drawTrajectory() {
   const s = ship;
   if (s.landed) { predCache = null; return; }
+  // once the exit lane has hold of you (or you're warping) the path is the lane's, which the prediction
+  // doesn't model; it would curve back into the system, so show nothing
+  if (warp || (exit && inExitLane(s.x, s.y) && Math.hypot(s.x, s.y) > ARENA_R - 200)) { predCache = null; return; }
   // recompute every other frame (and not at all while paused); a one-frame-old path looks identical
   if (!predCache || (!paused && ++predAge >= 2)) { predCache = predict(); predAge = 0; }
   const p = predCache, n = p.pts.length / 2, d = 1 * px;

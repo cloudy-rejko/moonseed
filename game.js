@@ -2338,8 +2338,10 @@ function render() {
   else drawHUD();
   if (TOUCH && !title) drawPauseIcon();
   if (warp) {
-    const a = warp.t < 1.5 ? warp.t / 1.5 : 1 - (warp.t - 1.5) / 1.5;
-    ctx.fillStyle = `rgba(220,235,255,${clamp(a, 0, 1)})`;
+    // fade to black and back in (a white flash was harsh, especially on an OLED screen at night), eased at
+    // both ends and holding dark for a moment around the switch
+    const a = warp.t < 1.5 ? smooth(clamp(warp.t / 1.3, 0, 1)) : 1 - smooth(clamp((warp.t - 1.7) / 1.3, 0, 1));
+    ctx.fillStyle = `rgba(3,5,13,${a})`;
     ctx.fillRect(0, 0, W, H);
   }
 }

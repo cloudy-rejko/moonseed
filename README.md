@@ -1,6 +1,6 @@
 # Moonseed
 
-![A ringed gas giant, a comet with its golden trail, moons in bloom and the little ship beside a crystal moon](images/hero.jpg)
+![A ringed gas giant, a comet with its golden trail, two moons in bloom and the little ship flying past](images/hero.jpg)
 
 *Gather stardust · land gently · grow gardens*
 

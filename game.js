@@ -294,15 +294,19 @@ function pickFeature(rnd, lanes, innerR) {
 }
 const FIRST_IDENTITY = { sun: '255,236,200', sun2: null, landmark: 'galaxy', landmarkAt: [0.82, 0.2], dust: 'streams', ambient: null, feature: null };
 
-// New systems lean toward things you haven't met yet: a few candidates are rolled and the one with the
-// most unseen things wins (gameplay counts double). Once you've seen everything it's plain random again.
+// New systems pace out the things you haven't met yet: a few candidates are rolled and the one closest to
+// "one new gameplay thing (none every third system) and at most one new look" wins, so the surprises keep
+// coming until about system 15 instead of all arriving in the first few. Once you've seen everything it's
+// plain random again.
 function generateSystem(n, prev = {}) {
   if (n === 2) return rollSystem(n, prev);
-  const seen = new Set(prefs.seen || []);
-  let best = null, bestScore = -1;
-  for (let i = 0; i < 6; i++) {
+  const seen = new Set(prefs.seen || []), wantGame = n % 3 === 0 ? 0 : 1;
+  let best = null, bestScore = -Infinity;
+  for (let i = 0; i < 12; i++) {
     const c = rollSystem(n, prev);
-    const score = systemTags(c.defs, c.identity).reduce((sc, t) => sc + (seen.has(t) ? 0 : GAMEPLAY_TAGS.includes(t) ? 2 : 1), 0);
+    const unseen = systemTags(c.defs, c.identity).filter(t => !seen.has(t));
+    const game = unseen.filter(t => GAMEPLAY_TAGS.includes(t)).length, looks = unseen.length - game;
+    const score = -3 * Math.abs(game - wantGame) - 2 * Math.max(0, looks - 1) + (looks === 1 ? 0.5 : 0);
     if (score > bestScore) { best = c; bestScore = score; }
   }
   return best;
@@ -3255,7 +3259,9 @@ function drawTitle() {
   ctx.shadowBlur = 0;
   ctx.fillStyle = 'rgba(190,210,235,0.75)';
   ctx.font = '14px ui-monospace, Consolas, monospace';
-  ctx.fillText('gather stardust  ·  land gently  ·  grow gardens', W / 2, H * 0.24 + 46);
+  const tag = 'gather stardust  ·  land gently  ·  grow gardens';
+  if (ctx.measureText(tag).width < W * 0.8) ctx.fillText(tag, W / 2, H * 0.24 + 46);
+  else tag.split('  ·  ').forEach((t, i) => ctx.fillText(t, W / 2, H * 0.24 + 44 + i * 22));  // a phone: stacked
 
   // ship picker
   const design = SHIPS[prefs.ship], cy = H * 0.55;

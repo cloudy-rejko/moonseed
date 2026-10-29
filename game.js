@@ -2163,9 +2163,14 @@ function drawAmbient() {
       grad.addColorStop(1, `rgba(${r},${g},${b},0)`);
       ctx.fillStyle = grad;
       for (let x = Math.floor(cx - half); x < cx + half; x += 4) {
+        if (x < -4 || x > W) continue;  // off screen
         const t = clamp((x - (cx - half)) / (2 * half), 0, 1), env = Math.sin(Math.PI * t) ** 1.5;  // (a negative base gave NaN)
+        const alpha = env * (0.75 + 0.25 * Math.sin(time * 0.2 + c * 2));
+        // skip the near-invisible slices at a drape's edges: on iPad Safari a vanishingly small alpha with
+        // 'lighter' could flash as a bright white vertical line
+        if (!(alpha > 0.01)) continue;
         const dy = Math.sin(x * 0.01 + time * 0.3 + c) * 10, stretch = 1 + 0.15 * Math.sin(x * 0.012 - time * 0.4 + c * 3);
-        ctx.globalAlpha = env * (0.75 + 0.25 * Math.sin(time * 0.2 + c * 2));
+        ctx.globalAlpha = alpha;
         ctx.fillRect(x, y0 + dy, 4, len * stretch);
       }
     }

@@ -657,12 +657,29 @@ const SHIPS = [
 // Draw the chosen ship at the current transform (already rotated and scaled).
 function drawHull(design, throttle, lineWidth) {
   if (throttle > 0.02) {
-    const len = 6 + 14 * throttle * rand(0.8, 1.1);
-    const flame = ctx.createLinearGradient(0, 5, 0, 5 + len);
-    flame.addColorStop(0, `rgba(255,240,200,${0.9 * throttle})`);
-    flame.addColorStop(1, 'rgba(255,140,60,0)');
-    ctx.fillStyle = flame;
-    ctx.beginPath(); ctx.moveTo(-2.6, 5); ctx.lineTo(0, 5 + len); ctx.lineTo(2.6, 5); ctx.fill();
+    // a layered plume: a soft warm glow, a flickering flame with a swaying tip and a white-hot core
+    const t = throttle, len = (8 + 20 * t) * rand(0.85, 1.1);
+    ctx.save();
+    ctx.globalCompositeOperation = 'lighter';
+    const gy = 6 + len * 0.3, gr = len * 0.7;
+    const glow = ctx.createRadialGradient(0, gy, 0, 0, gy, gr);
+    glow.addColorStop(0, `rgba(255,170,90,${0.22 * t})`); glow.addColorStop(1, 'rgba(255,120,60,0)');
+    ctx.fillStyle = glow;
+    ctx.beginPath(); ctx.arc(0, gy, gr, 0, TAU); ctx.fill();
+    const lick = (w, l, c0, c1) => {  // a teardrop of flame, w wide at the nozzle and l long
+      const g = ctx.createLinearGradient(0, 5, 0, 5 + l);
+      g.addColorStop(0, c0); g.addColorStop(1, c1);
+      ctx.fillStyle = g;
+      const tip = rand(-0.5, 0.5) * w;
+      ctx.beginPath(); ctx.moveTo(-w, 5);
+      ctx.quadraticCurveTo(-w * 1.2, 5 + l * 0.45, tip, 5 + l);
+      ctx.quadraticCurveTo(w * 1.2, 5 + l * 0.45, w, 5);
+      ctx.closePath(); ctx.fill();
+    };
+    lick(3.1, len, `rgba(255,150,70,${0.5 * t})`, 'rgba(255,90,40,0)');
+    lick(2.0, len * 0.7, `rgba(255,220,150,${0.75 * t})`, 'rgba(255,150,70,0)');
+    lick(0.9, len * 0.38, `rgba(255,255,240,${0.95 * t})`, 'rgba(255,230,180,0)');
+    ctx.restore();
   }
   ctx.lineWidth = lineWidth;
   ctx.strokeStyle = '#eef7ff'; ctx.shadowColor = design.glow; ctx.shadowBlur = 14;

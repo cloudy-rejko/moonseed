@@ -1,6 +1,6 @@
 # Moonseed
 
-![A ringed gas giant, a comet with its golden trail, two moons in bloom and the little ship flying past](images/hero.jpg)
+![A ringed gas giant, a comet with its golden trail, two moons in bloom and the little ship lifting off one of them](images/hero.jpg)
 
 *Gather stardust · land gently · grow gardens*
 
@@ -53,8 +53,8 @@ right button for gentle thrust.
 
 ## Tiny on purpose
 
-The whole game is two files: a 2 KB `index.html` and a 171 KB `game.js`. Compressed, that's about
-**54 KB**, a third of the size of the screenshot at the top of this page.
+The whole game is two files: a 2 KB `index.html` and a 172 KB `game.js`. Compressed, that's about
+**55 KB**, a third of the size of the screenshot at the top of this page.
 
 There are no images, no sound files, no fonts and no libraries. Every star, planet, plant and comet is
 drawn by code as you play, and every sound is synthesised live by your browser: the engine's hum, the

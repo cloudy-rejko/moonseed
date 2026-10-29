@@ -649,6 +649,17 @@ const SHIPS = [
     detail() { ctx.arc(0, -5, 1.1, 0, TAU); },
   },
 ];
+// Each ship is one colour from nose to flame: its lines tinted halfway to its glow, and a flame in its colour
+// (pushed away from pastel so it reads as fire) around a white-hot core.
+for (const d of SHIPS) {
+  const g = [1, 3, 5].map(i => parseInt(d.glow.slice(i, i + 2), 16));
+  d.line ??= `rgb(${g.map((v, i) => Math.round((v + [238, 247, 255][i]) / 2)).join(',')})`;
+  d.plume ??= [
+    g.map(v => Math.max(0, Math.round(255 - (255 - v) * 1.7))).join(','),
+    g.map(v => Math.round(v + (255 - v) * 0.35)).join(','),
+    '255,255,250',
+  ];
+}
 // The pick is saved by name; older saves kept its place in the original four-ship lineup.
 {
   const name = prefs.shipName ?? ['Arrow', 'Notch', 'Swallow', 'Kite'][prefs.ship];

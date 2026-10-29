@@ -454,14 +454,13 @@ function buildSystem(n, saved = null) {
   setMusic(system.theme);
   system.identity = sys.identity || (n === 1 ? FIRST_IDENTITY : pickIdentity(seededRandom(n * 7717 + 3), sys.defs, system.innerR));
   if (system.identity.sun2 === undefined) system.identity.sun2 = null;
-  // theme-derived colours: background wisps, stardust (tinted with the lead colour), engine exhaust
+  // theme-derived colours: background wisps, stardust (tinted with the lead colour)
   const theme = THEMES.find(t => t.name === system.theme) || THEMES[0];
   const tint = (c, w) => c.map(v => Math.round(mix(v, 255, w))).join(',');
   system.palette = theme.colors;
   system.night = [1, 3, 5].map(i => Math.round(Math.min(255, parseInt(system.nebula[0].slice(i, i + 2), 16) * 2.4))).join(',');
   system.dustHalo = tint(theme.colors[0], 0.3);
   system.dustCore = tint(theme.colors[0], 0.75);
-  system.exhaust = [tint(theme.colors[1], 0.45), '255,236,205'];
   updateBodies(0);
 }
 
@@ -656,7 +655,7 @@ for (const d of SHIPS) {
   d.line ??= `rgb(${g.map((v, i) => Math.round((v + [238, 247, 255][i]) / 2)).join(',')})`;
   d.plume ??= [
     g.map(v => Math.max(0, Math.round(255 - (255 - v) * 1.7))).join(','),
-    g.map(v => Math.round(v + (255 - v) * 0.35)).join(','),
+    g.join(','),
     '255,255,250',
   ];
 }
@@ -693,7 +692,7 @@ function drawHull(design, throttle, lineWidth) {
     };
     lick(3.1, len, `rgba(${outer},${0.5 * t})`, `rgba(${outer},0)`);
     lick(2.0, len * 0.7, `rgba(${inner},${0.75 * t})`, `rgba(${outer},0)`);
-    lick(0.9, len * 0.38, `rgba(${core},${0.95 * t})`, `rgba(${inner},0)`);
+    lick(0.8, len * 0.3, `rgba(${core},${0.85 * t})`, `rgba(${inner},0)`);
     ctx.restore();
   }
   ctx.lineWidth = lineWidth;
@@ -810,10 +809,13 @@ let inputMode = TOUCH ? 'touch' : 'keys';
 const fullThrust = () => keys.KeyW || keys.ArrowUp || keys.Space || mouse.down;
 const gentleThrust = () => keys.KeyS || keys.ArrowDown || mouse.right;
 
-function cycleShip(step) {
-  prefs.ship = (prefs.ship + step + SHIPS.length) % SHIPS.length;
-  prefs.shipName = SHIPS[prefs.ship].name;
+function pickShip(i) {
+  prefs.ship = i;
+  prefs.shipName = SHIPS[i].name;
   savePrefs();
+}
+function cycleShip(step) {
+  pickShip((prefs.ship + step + SHIPS.length) % SHIPS.length);
 }
 
 let restartAsked = -10;
@@ -951,7 +953,7 @@ function menuTap(x, y) {
 function drawPauseMenu() {
   const items = menuItems(), pw = Math.min(W - 32, 480), cols = pw >= 340 ? 2 : 1, bh = 44, gap = 8;
   const bw = (pw - gap * (cols - 1)) / cols, rows = 1 + Math.ceil((items.length - 1) / cols);
-  const ph = 56 + rows * (bh + gap), x0 = W / 2 - pw / 2, y0 = Math.max(70, H / 2 - ph / 2);
+  const showH = 116, ph = 56 + rows * (bh + gap) + showH, x0 = W / 2 - pw / 2, y0 = Math.max(70, H / 2 - ph / 2);
   ctx.save();
   ctx.fillStyle = 'rgba(3,5,13,0.6)';
   ctx.fillRect(0, 0, W, H);
@@ -975,6 +977,19 @@ function drawPauseMenu() {
     ctx.fillStyle = '#e4efff'; ctx.font = '14px ui-monospace, Consolas, monospace';
     ctx.fillText(label, x + 42, y + 22);
     ctx.textAlign = 'center';
+  });
+  // the ships, so you can see what you're picking: the current one bigger, lit and firing
+  const sy = y0 + 44 + rows * (bh + gap) + 52, cw = pw / SHIPS.length;
+  ctx.fillStyle = 'rgba(10,16,34,0.88)'; ctx.strokeStyle = 'rgba(150,180,230,0.25)'; ctx.lineWidth = 1;
+  ctx.beginPath(); ctx.roundRect(x0, sy - 52, pw, 104, 8); ctx.fill(); ctx.stroke();
+  SHIPS.forEach((d, i) => {
+    const cx = x0 + cw * (i + 0.5), on = i === prefs.ship, k = on ? 2.6 : 1.9;
+    menuRects.push({ x: cx - cw / 2, y: sy - 52, w: cw, h: 104, act: () => pickShip(i) });
+    ctx.save();
+    ctx.globalAlpha = on ? 1 : 0.5;
+    ctx.translate(cx, sy - 16); ctx.scale(k, k);
+    drawHull(d, on ? 0.5 : 0, 2 / k);
+    ctx.restore();
   });
   ctx.restore();
 }
@@ -1408,7 +1423,7 @@ function updateShip(dt) {
     const a = s.angle + Math.PI + rand(-0.25, 0.25), sp = rand(70, 140);
     particles.push({
       x: s.x - dx * 9, y: s.y - dy * 9, vx: s.vx + Math.cos(a) * sp, vy: s.vy + Math.sin(a) * sp,
-      life: rand(0.3, 0.6), max: 0.6, color: pick(system.exhaust), size: 1.6, grav: false,
+      life: rand(0.3, 0.6), max: 0.6, color: pick(SHIPS[prefs.ship].plume.slice(0, 2)), size: 1.6, grav: false,
     });
   }
 

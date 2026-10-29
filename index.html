@@ -1,0 +1,41 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<meta name="theme-color" content="#050814">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black">
+<title>Moonseed</title>
+<style>
+  html, body { margin: 0; height: 100%; background: #050814; overflow: hidden; overscroll-behavior: none; }
+  /* no scrolling, pinch-zoom, text selection or long-press callouts on phones */
+  body { -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; -webkit-tap-highlight-color: transparent; }
+  canvas { display: block; width: 100vw; height: 100vh; cursor: none; touch-action: none; position: fixed; top: 0; left: 0; }
+  #tuning {
+    position: fixed; top: 90px; right: 16px; width: 300px; padding: 12px 14px;
+    background: rgba(10, 14, 28, 0.92); border: 1px solid #2a3560; border-radius: 8px;
+    color: #cde; font: 12px ui-monospace, Consolas, monospace; display: none;
+  }
+  #tuning.open { display: block; }
+  #tuning h3 { margin: 0 0 8px; font-size: 13px; color: #9cf; }
+  #tuning h3 small { color: #678; font-weight: normal; }
+  #tuning .row { display: grid; grid-template-columns: 1fr 110px 52px; gap: 6px; align-items: center; margin: 4px 0; }
+  #tuning output { text-align: right; color: #ffd27a; }
+  #tuning button {
+    margin-top: 8px; width: 100%; padding: 5px; background: #1a2340; color: #cde;
+    border: 1px solid #2a3560; border-radius: 4px; font: inherit; cursor: pointer;
+  }
+</style>
+</head>
+<body>
+<canvas id="game"></canvas>
+<div id="tuning"></div>
+<script>
+  // always load the latest game.js (the browser would otherwise sometimes keep an old copy)
+  const s = document.createElement('script');
+  s.src = 'game.js?v=' + Date.now();
+  document.body.appendChild(s);
+</script>
+</body>
+</html>

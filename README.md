@@ -26,11 +26,13 @@ space, where you can collect them again.
 | Turn | ← → | drag anywhere |
 | Thrust | ↑ | drag further |
 | Gentle thrust | ↓ | |
-| Brake and land | | a second thumb anywhere |
+| Brake and land | Space (hold) | a second thumb anywhere |
+| Throw seeds (landed) | hold E: ← → aim, ↑ ↓ strength, let go | pull back from the ship, let go |
+| Let go of a towed seed pod | E | tap the pod |
 | Menu | P or Esc | ❚❚ in the corner |
 
-WASD and Space work too, and so does the mouse: the ship turns toward the cursor, left button to thrust,
-right button for gentle thrust.
+WASD works too, and so does the mouse: the ship turns toward the cursor, left button to thrust,
+right button for gentle thrust; landed, drag back from the ship to throw seeds.
 
 **On an iPhone:**
 - No sound? The silent switch mutes web pages too.
@@ -51,10 +53,10 @@ right button for gentle thrust.
 
 ![](images/banner-black-hole.jpg)
 
-## Tiny on purpose
+## Tiny by design
 
-The whole game is two files: a 2 KB `index.html` and a 172 KB `game.js`. Compressed, that's about
-**55 KB**, a third of the size of the screenshot at the top of this page.
+The whole game is two files: a 2 KB `index.html` and a 331 KB `game.js`. Compressed, that's about
+**107 KB**, smaller than the screenshot at the top of this page.
 
 There are no images, no sound files, no fonts and no libraries. Every star, planet, plant and comet is
 drawn by code as you play, and every sound is synthesised live by your browser: the engine's hum, the
@@ -67,10 +69,37 @@ ahead of you is a live simulation of where you're heading, up to half a minute i
 moons moving along their orbits as it goes. The planets and moons themselves follow fixed orbits, so a
 system stays stable however long you play.
 
-To run it yourself, serve the folder with any static web server.
-
 ## Credits
 
 Made by cloudy-rejko and Opus 5.5.
 
 © 2026 cloudy-rejko. All rights reserved.
+
+![](images/banner-rogue.jpg)
+
+## Changelog
+
+### 1.1 (31 October 2026)
+
+- **Rogue planets** wander through some systems on paths of their own. Land on one and plant it, and in
+  full bloom it blasts off on its flower engine: a victory lap, a loop-the-loop, and away.
+- **Throw seeds** while you're landed: drag back from the ship like a slingshot (or hold E) and let go.
+  Each throw is a pod carrying a tenth of your seeds that sows a stripe of ground where it lands, and any
+  seeds it can't use float off as stardust.
+- **Seed pods** drift through some systems. Match speed to hook one on a tether, then smash it into a
+  garden and it bursts into a patch of growth.
+- **Solar gusts**: the sun glows, breathes out a wave of light, and a line of sun-coloured dust follows.
+  Race along the line, or gather the drifts it leaves behind the moons. Gardens in full bloom shed spores
+  on the wind, and now and then one takes root elsewhere as a single flower.
+- **New worlds and stars**: pairs of dwarf stars, a rare neutron star with sweeping pulsar beams,
+  fast-spinning worlds, planets wrapped in thick air you can skim to slow down, and icy moons with geysers
+  to ride.
+- **Light traces**: fly a clean orbit hands-off and it lights up as a ring; swing close past a body for an
+  arc of light.
+- **Space brakes** on the keyboard, like the second thumb on a phone.
+- The seeds circling your ship change colour as your hoard grows, with a word every 500 seeds.
+- A new system gets a moment to itself before its info card appears.
+
+### 1.0 (29 October 2026)
+
+- First release.

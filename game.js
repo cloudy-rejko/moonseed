@@ -519,26 +519,7 @@ LAB_SYSTEMS.push(
       cam.focus = c;
     },
   },
-  {
-    name: 'Rogue planet', make: (n, prev) => rollSystem(n, prev, { archetype: 'classic', feature: 'rogue' }),
-    desc: 'A rogue planet drifts by overhead, nearly in bloom. Land on it and finish it (or throw a pod): it sails off on a victory lap',
-    // it's already drifting when you arrive, on a wandering path that passes close above you some 15 s in
-    setup() {
-      const b = rogue, h = gardens[0];
-      if (!b) return;
-      if (b.present) { b.present = false; bodies.splice(bodies.indexOf(b), 1); gardens.splice(gardens.indexOf(b), 1); }
-      Object.assign(ship, { landed: h, landAngle: -0.3, angle: -0.3, vx: 0, vy: 0, holdSeeds: true, tow: null, slide: null });  // facing right, clear of the card
-      parkShip();
-      rogueArrive(b);
-      const ux = Math.cos(-0.3), uy = Math.sin(-0.3), sense = pick([-1, 1]), tx = -uy * sense, ty = ux * sense, up = h.R + b.R + 60;
-      const x = h.px + ux * (up + 70) - tx * 180, y = h.py + uy * (up + 70) - ty * 180;
-      roguePlan(b, i => ({ x, y, h: Math.atan2(ty, tx), w: rogueWander(i, 0.4), bias: 0, bl: 1, k: [1.5, 1.25, 1][i % 3], sail: false }), ROGUE_LANE);
-      b.s = 0; b.rate = ROGUE_LANE * b.arc.k;
-      rogueMove(b);
-      // most of the way to full bloom already, so a short visit (or one pod) sees it sail
-      while (b.plants.length < b.maxPlants * 0.8) plantSeed(b, rand(0, TAU));
-    },
-  },
+
 );
 // the newest batch goes first, so a fresh lab run starts with what's new
 LAB_SYSTEMS.unshift(
@@ -638,6 +619,44 @@ LAB_SYSTEMS.unshift(
     desc: 'The new colour theme: coral, amber and turquoise on a magenta-plum sky',
   },
 );
+LAB_SYSTEMS.unshift(
+  {
+    name: 'Rogue planet', make: (n, prev) => rollSystem(n, prev, { archetype: 'classic', feature: 'rogue' }),
+    desc: 'A rogue planet drifts in from one side and passes overhead, nearly in bloom (its path dashed: lab only). Land on it and finish it (or throw a pod), then take off: watch the way it leaves',
+    showPath: true,
+    // it's already drifting when you arrive, fading in a little way off to one side, on a wandering path that
+    // passes close above you some 15-20 s in
+    setup() {
+      const b = rogue, h = gardens[0];
+      if (!b) return;
+      if (b.present) { b.present = false; bodies.splice(bodies.indexOf(b), 1); gardens.splice(gardens.indexOf(b), 1); }
+      Object.assign(ship, { landed: h, landAngle: -0.3, angle: -0.3, vx: 0, vy: 0, holdSeeds: true, tow: null, slide: null });  // facing right, clear of the card
+      parkShip();
+      b.anyWay = true; rogueArrive(b); b.anyWay = false;  // (any way in will do: the next line picks its path)
+      const ux = Math.cos(-0.3), uy = Math.sin(-0.3), sense = pick([-1, 1]), tx = -uy * sense, ty = ux * sense, up = h.R + b.R + 60;
+      const x = h.px + ux * (up + 30) - tx * 400, y = h.py + uy * (up + 30) - ty * 400;
+      roguePlan(b, i => ({ x, y, h: Math.atan2(ty, tx), w: rogueWander(i, 0.2), bias: 0, bl: 1, k: [1.5, 1.25, 1][i % 3], sail: false }), ROGUE_LANE);
+      b.s = 0; b.rate = ROGUE_LANE * b.arc.k;
+      rogueMove(b);
+      // most of the way to full bloom already, so a short visit (or one pod) sees it sail
+      while (b.plants.length < b.maxPlants * 0.8) plantSeed(b, rand(0, TAU));
+    },
+  },  {
+    name: 'Comet crash', make: (n, prev) => labRoomyMoon(n, prev, 'classic', null),
+    desc: 'Every 7 s a comet comes down on your planet, straight or glancing: a splash, and gold motes worth 2 seeds each',
+    tick() {
+      if (time < (this.next ?? 0) || warp) return;
+      this.next = time + 7;
+      // off to the side of you, aimed anywhere from dead centre to a glancing blow
+      const h = gardens[0], a = -Math.PI / 2 + pick([-1, 1]) * rand(1.2, 1.7), r = h.R + 150, off = rand(-0.85, 0.85) * h.R;
+      const tx = h.px - Math.sin(a) * off, ty = h.py + Math.cos(a) * off, x = h.px + Math.cos(a) * r, y = h.py + Math.sin(a) * r, d = Math.hypot(tx - x, ty - y);
+      comets.push({
+        x, y, vx: h.pvx + (tx - x) / d * 70, vy: h.pvy + (ty - y) / d * 70,
+        age: 0, travel: 0, dropped: 0, caught: false, fade: 1, leaving: false, spin: rand(0, TAU), shape: Array.from({ length: 7 }, () => rand(0.75, 1.15)),
+      });
+    },
+  },
+);
 // lab systems with their big moon kept clear of moonlets (so it has room to hold an orbit), no crystal
 function labRoomyMoon(n, prev, archetype, feature) {
   const sys = rollSystem(n, prev, { archetype, feature });
@@ -649,7 +668,7 @@ function labRoomyMoon(n, prev, archetype, feature) {
 function labEntry(n) { return LAB_SYSTEMS[(n - 1) % LAB_SYSTEMS.length]; }
 function labSystem(n, prev) {
   const e = labEntry(n), sys = e.make(n, prev);
-  sys.lab = { name: e.name, desc: e.desc, i: (n - 1) % LAB_SYSTEMS.length + 1, setup: e.setup };
+  sys.lab = { name: e.name, desc: e.desc, i: (n - 1) % LAB_SYSTEMS.length + 1, setup: e.setup, tick: e.tick, showPath: e.showPath };
   return sys;
 }
 function labSkip() {  // warp straight on to the next lab system
@@ -766,7 +785,7 @@ function describeTag(tag) {
     rocks: LAB ? 'Asteroids to bump, crack, or nudge into orbit as a new moon' : 'Asteroids to bump and crack open',  // (a made moon is an easter egg)
     tow: 'Seed pods drift here. Match their speed to hook one, then swing it into a garden to burst it',
     binary: 'Two dwarf stars dance in the middle. Their pull swings round as they turn: trust your dotted line',
-    rogue: `A rogue planet, ${(system.identity.rogue || {}).name}, wanders through now and then. Land on it and plant it: in bloom it blasts off on its flower engine`,
+    rogue: `A rogue planet, ${(system.identity.rogue || {}).name}, wanders through now and then. Land on it and plant it, and see what it does in full bloom`,
     spin: `${(gardens.find(b => b.fast) || {}).name} is a fast-spinning world: land with the spin`,
     air: `${(gardens.find(b => b.air) || {}).name} is wrapped in thick air: skim it to slow down`,
     geyser: `${(gardens.find(b => b.vents) || {}).name} is an icy moon with geysers: ride a puff, catch the dust`,
@@ -1575,7 +1594,28 @@ let streamTimer, cometTimer, ringTimer, diskTimer = 0, fireflyTimer, saveTimer, 
 let title = true, paused = false, showHints = true, time = 0;
 let photo = null, starMap = false, visited = [];  // photo mode ({ at, wasPaused }), star map open, systems left behind
 
+// Two kinds of line. say() answers something you just did (a catch, a bloom, a key) and shows at once.
+// remark() only comments on the sky around you (a comet arrives, bamboo sprouts, a rogue drifts in): it waits
+// for a quiet moment (no text for a few seconds, no arrival card, not too soon after the last remark), gives up
+// if none comes soon, and with a key it's a tip said once ever. So the screen never chatters.
+const MSG_TIME = 4, QUIET_GAP = 3, QUIET_EVERY = 15, QUIET_WAIT = 14;  // seconds: a line shows, the hush after it, between remarks, how long one waits
+let remarks = [], remarkAt = -99;
 function say(text, color = '#cfe') { message = { text, color, t: time }; }
+function remark(text, color = '#cfe', key = null) {
+  if (key && (prefs.told || []).includes(key)) return;
+  if (remarks.length < 3 && !remarks.some(r => r.text === text)) remarks.push({ text, color, key, until: time + QUIET_WAIT });
+}
+function updateRemarks() {
+  remarks = remarks.filter(r => r.until > time);
+  if (!remarks.length || card || warp || time - (message ? message.t : -99) < MSG_TIME + QUIET_GAP || time - remarkAt < QUIET_EVERY) return;
+  const r = remarks.shift();
+  say(r.text, r.color); remarkAt = time;
+  if (r.key && !LAB) { prefs.told = [...(prefs.told || []), r.key]; savePrefs(); }  // (the lab tells you every time)
+}
+// Visitors (a comet, the rogue planet, a passing star) and the solar gusts keep out of each other's way, so
+// two never arrive together: one that's due while another has just come (or a gust is near) waits a little.
+let visitAt = -99;
+const skyBusy = () => time - visitAt < 15 || gusts.some(g => Math.abs(g - time) < 12);
 
 function startGame() {
   title = false;
@@ -1606,16 +1646,16 @@ function enterSystem(n, saved = null) {
   parkShip();
   motes = []; comets = []; particles = []; fireflies = []; rocks = []; rockTimer = 0; waves = []; allBloomedAt = -99; card = null;
   traces = []; shipTrack = newTrack();
-  eclipse = 0; eclipseOn = null; eclipseNext = time + 20; stretch = 0; pulsarD = null; setupPools(); passing = null;
+  eclipse = 0; eclipseOn = null; eclipseNext = time + 45; stretch = 0; pulsarD = null; setupPools(); passing = null;
   cloudFade = 0; cloudBody = null; cloudIn = false; cloudFlash = null;
-  lob = null; lobbed = []; sowing = []; pods = []; podTimer = POD_RESPAWN;
+  lob = null; lobbed = []; sowing = []; pods = []; podTimer = POD_RESPAWN; remarks = [];
   if (system.identity.feature === 'rocks') for (let i = 0; i < 4; i++) spawnRock();
   if (system.identity.feature === 'tow') for (let i = 0; i < 2; i++) spawnPod();  // not saved: fresh pods each visit
   gusts = []; spores = [];  // not saved either: the first gust comes a little while after you arrive
-  if (system.identity.feature === 'gust') { gusts.push(time + rand(8, 13)); while (gusts.length < 3) gusts.push(gusts[gusts.length - 1] + rand(...GUST_GAP)); }
+  if (system.identity.feature === 'gust') { gusts.push(time + rand(30, 36)); while (gusts.length < 3) gusts.push(gusts[gusts.length - 1] + rand(...GUST_GAP)); }
   system.arrivedAt = time;
   chain = 0; lastPickup = -10; chainPopup = null;
-  streamTimer = 0; cometTimer = Math.min(30, system.comet[0]); ringTimer = 0; fireflyTimer = 0; saveTimer = 5;
+  streamTimer = 0; cometTimer = rand(12, 45);  // (sometimes the first thing to chase, sometimes a while in) ringTimer = 0; fireflyTimer = 0; saveTimer = 5;
   allBloomed = gardens.every(b => b.bloomed || b.made || b.rogue);  // a moon you made (or a rogue planet) is a bonus garden, never a chore
   // older saves stored a gate position; its direction becomes the exit lane
   const savedExit = saved ? saved.exit ?? (saved.gate ? Math.atan2(saved.gate[1], saved.gate[0]) : null) : null;
@@ -1737,7 +1777,7 @@ function spawnComet() {
     age: 0, travel: 0, dropped: 0, caught: false, fade: 1, leaving: false, spin: rand(0, TAU),
     shape: Array.from({ length: 7 }, () => rand(0.75, 1.15)),  // a lumpy little nucleus
   });
-  say('A comet! Follow its golden trail', '#ffe7a0');
+  remark('A comet! Follow its golden trail', '#ffe7a0', 'comet');
   arpeggio([SCALE[10], SCALE[8], SCALE[9], SCALE[7]], 0.12, 0.05);
 }
 
@@ -1773,6 +1813,8 @@ function update(dt) {
   updateClouds(dt);
   updateFireflies(dt);
   updateExit(dt);
+  updateRemarks();
+  if (system.lab && system.lab.tick) system.lab.tick(dt);
   updateParticles(dt);
   updateMusic(dt);
   for (let i = waves.length - 1; i >= 0; i--) if (time - waves[i].t0 > waves[i].dur) removeAt(waves, i);
@@ -1794,7 +1836,10 @@ function update(dt) {
     }
   }
   cometTimer -= dt;
-  if (cometTimer <= 0) { spawnComet(); cometTimer = rand(system.comet[0], system.comet[1]); }
+  if (cometTimer <= 0) {
+    if (skyBusy()) cometTimer = rand(4, 8);
+    else { spawnComet(); visitAt = time; cometTimer = rand(system.comet[0], system.comet[1]); }
+  }
   saveTimer -= dt;
   if (saveTimer <= 0) { saveGame(); saveTimer = 5; }
   if (warp) {
@@ -1985,7 +2030,7 @@ function updateShip(dt) {
   const riding = currentK(s.x, s.y) > 0.3;
   if (riding && !s.riding) {
     thud(0.07, 2400, 0.9, 500);  // a soft whoosh
-    if (!system.rodeCurrent) { system.rodeCurrent = true; say('Riding the solar wind', '#bfe8ff'); }
+    if (!system.rodeCurrent) { system.rodeCurrent = true; remark('Riding the solar wind', '#bfe8ff', 'wind'); }
   }
   s.riding = riding;
   snapAssist(dt);
@@ -2016,7 +2061,7 @@ function updateShip(dt) {
       s.slide = b; s.airborne = false; s.slideCalm = 0;
       thud(0.06, 900, 0.5, 300);
       slideStep(b, nx, ny, svx, svy, tx * nx + ty * ny, dt);
-      if (!system.skidSaid) { system.skidSaid = true; say(`Skidding with ${b.name}'s spin: come down moving with the ground to touch down gently`, bodyColor(b)); }
+      if (!system.skidSaid) { system.skidSaid = true; remark(`Skidding with ${b.name}'s spin: come down moving with the ground to touch down gently`, bodyColor(b), 'skid'); }
       return;
     }
     s.slide = null;  // a bounce ends a skid
@@ -2200,7 +2245,7 @@ function airWisps(through, dt) {
   }
   if (time - (s.windAt ?? -9) > 0.3) { s.windAt = time; thud(0.02 + 0.05 * k, 900 + 1400 * k, 0.45); }
   const b = airy.find(o => Math.hypot(s.x - o.px, s.y - o.py) < o.R * o.air);
-  if (b && !b.skimSaid && through > 50) { b.skimSaid = true; say(`Skimming the air of ${b.name}`, bodyColor(b)); }
+  if (b && !b.skimSaid && through > 50) { b.skimSaid = true; remark(`Skimming the air of ${b.name}`, bodyColor(b)); }
 }
 
 // A gas giant has no ground: you can dive right through it. Its pull weakens toward the core (it's
@@ -2218,7 +2263,7 @@ function cloudDrag(o, dt, isShip) {
       const col = Math.random() < 0.7 ? b.color.join(',') : pick(b.accents);
       particles.push({ x: o.x + rand(-6, 6), y: o.y + rand(-6, 6), vx: o.vx * 0.2 + rand(-12, 12), vy: o.vy * 0.2 + rand(-12, 12), life: rand(0.7, 1.4), max: 1.4, color: col, size: rand(2, 3.2), grav: false });
     }
-    if (!b.divedAt) { b.divedAt = time; say(`Diving into the clouds of ${b.name}, out of sight`, bodyColor(b)); thud(0.08, 600, 1.2, 120); }
+    if (!b.divedAt) { b.divedAt = time; remark(`Diving into the clouds of ${b.name}, out of sight`, bodyColor(b)); thud(0.08, 600, 1.2, 120); }
   }
 }
 
@@ -2325,7 +2370,7 @@ function updateGeysers(dt) {
 // lifted off a vent: a soft rising note, and once a system a word
 function puffedUp(b) {
   voice(SCALE[4] * 2, 0.025, 1.2, 0.05, 'triangle');
-  if (!system.puffSaid) { system.puffSaid = true; say(`A geyser on ${b.name} lifts you. Ride it up, catch the dust`, bodyColor(b)); }
+  if (!system.puffSaid) { system.puffSaid = true; remark(`A geyser on ${b.name} lifts you. Ride it up, catch the dust`, bodyColor(b), 'geyser'); }
 }
 
 // ===== Vanishing into a gas giant =====
@@ -2415,7 +2460,7 @@ function startPassing(lead = PASS_LEAD) {
   };
   passing.px = passing.x0; passing.py = passing.y0;
   bodies.push(passing);
-  say('A wandering star passes by the system. Feel its pull', `rgb(${tint})`);
+  remark('A wandering star passes by the system. Feel its pull', `rgb(${tint})`);
   voice(CHORDS[0][0] / 2, 0.05, 6, 2); voice(CHORDS[0][2], 0.015, 6, 2.5, 'triangle');
 }
 const passAt = (p, t) => [p.x0 + p.vx * (t - p.t0), p.y0 + p.vy * (t - p.t0)];
@@ -2423,7 +2468,7 @@ function updatePassing(dt) {
   const p = passing;
   if (!p) {
     if (!passNext) passNext = time + rand(...PASS_GAP);
-    if (!LAB && !warp && time > passNext && time - (system.arrivedAt ?? time) > 40 && !(rogue && rogue.present) && !system.binary) startPassing();
+    if (!LAB && !warp && time > passNext && time - (system.arrivedAt ?? time) > 60 && !(rogue && rogue.present) && !system.binary && !skyBusy()) { startPassing(); visitAt = time; }
     return;
   }
   [p.px, p.py] = passAt(p, time);
@@ -2441,15 +2486,43 @@ function updatePassing(dt) {
   if (time - p.t0 > p.life && (gone || r > ARENA_R * 4)) { bodies.splice(bodies.indexOf(p), 1); passing = null; passNext = time + rand(...PASS_GAP); }
 }
 
-// A comet that hits a world splashes a little of its gold back off the surface: a few golden motes (2 seeds
-// each) floating up where it struck, like its trail beads, fading after a while. Kept small: comets hit a lot.
-function goldSplash(c, b) {
-  if (b.kind === 'sun' || b.kind === 'hole' || b.kind === 'neutron' || b.passing) return;  // (those just take it)
-  const a = Math.atan2(c.y - b.py, c.x - b.px), n = c.piece ? 2 : 7;
-  for (let k = 0; k < n; k++) {
-    const d = a + rand(-1, 1), sp = rand(10, 28), out = b.R + rand(4, 10);
-    motes.push({ x: b.px + Math.cos(d) * out, y: b.py + Math.sin(d) * out, vx: b.pvx + Math.cos(d) * sp, vy: b.pvy + Math.sin(d) * sp, born: time - 0.3, tw: rand(0, TAU), gold: true, hang: true, life: rand(10, 14) });
+// A comet that hits a world splashes, and how depends on how it came in: straight down, the splash goes up;
+// a glancing blow throws it on ahead, and lays a glowing skid along the ground. The sparks are little streaks
+// thrown up in the world's own frame that arc and fall back onto it under its pull (so they don't smear as it
+// moves on): ragged, most staying low and a few long jets, never two splashes alike. The gold (2 seeds a mote)
+// goes out in two or three short rays of beads, settling like little strings of a comet's trail. A sun, a
+// black hole or a neutron star (or a passing star) just swallows it in a flare.
+function cometImpact(c, b) {
+  const a = Math.atan2(c.y - b.py, c.x - b.px), nx = Math.cos(a), ny = Math.sin(a), sx = b.px + nx * b.R, sy = b.py + ny * b.R;
+  const swallow = b.kind === 'sun' || b.kind === 'hole' || b.kind === 'neutron' || b.passing, small = c.piece, gold = '255,225,160';
+  if (swallow) { burst(sx, sy, 18, { vx: b.pvx, vy: b.pvy, dir: a, spread: 2.2, speed: [25, 80], life: [0.5, 1.1], color: gold, size: 2 }); return; }
+  // how it came in: `glance` 0 head-on to 1 skimming, `fwd` the way round it was going
+  const rx = c.vx - b.pvx, ry = c.vy - b.pvy, v = Math.hypot(rx, ry) || 1, vn = rx * nx + ry * ny;
+  const tx = rx - vn * nx, ty = ry - vn * ny, glance = Math.hypot(tx, ty) / v, fwd = Math.sign(-ny * tx + nx * ty) || 1;
+  const esc = Math.sqrt(2 * b.gm / b.R), k = small ? 0.45 : 1, lean = fwd * glance * 1.3 + rand(-0.25, 0.25), width = 1 - 0.6 * glance;
+  const spot = (x, y, vx, vy, life, size, extra) => particles.push({ x, y, vx, vy, life, max: life, color: gold, size, ride: b, bvx: 0, bvy: 0, ...extra });
+  spot(sx, sy, 0, 0, 0.1, 5, { color: '255,235,190' });  // the flash
+  for (let i = 0; i < 24 * k; i++) {
+    const r = Math.random(), d = a + lean + (rand(-1, 1) + rand(-1, 1)) * 0.5 * width * 1.3, sp = esc * (0.25 + 0.55 * r * r);
+    spot(sx + Math.cos(d) * 1.5, sy + Math.sin(d) * 1.5, Math.cos(d) * sp, Math.sin(d) * sp, rand(1.2, 2.4), rand(1, 1.7), { shard: true });
   }
+  if (glance > 0.45) {  // the skid: a streak of glowing ground laid on ahead, longer the more it glanced
+    const len = (glance - 0.3) * 0.5 * (small ? 0.5 : 1);
+    for (let i = 0; i < 10; i++) {
+      const u = i / 10, ga = a + fwd * len * u, ox = b.R * Math.cos(ga), oy = b.R * Math.sin(ga);
+      spot(b.px + ox, b.py + oy, 0, 0, rand(1.2, 2) * (1 - u * 0.5), rand(1.4, 2.2) * (1 - u * 0.4), { stick: [ox, oy] });
+    }
+  }
+  // the gold: short rays of 3 or 4 beads, each ray its own way, the beads along it flung a little faster each
+  const rays = small ? 1 : rand(0, 1) < 0.5 ? 2 : 3;
+  for (let j = 0; j < rays; j++) {
+    const d0 = a + lean + rand(-0.7, 0.7) * width, base = rand(18, 38) * (small ? 0.7 : 1), n = small ? 3 : Math.random() < 0.5 ? 3 : 4;
+    for (let i = 0; i < n; i++) {
+      const d = d0 + rand(-0.06, 0.06), sp = base * [0.55, 0.75, 1, 1.2][i];
+      motes.push({ x: sx + Math.cos(d) * 3, y: sy + Math.sin(d) * 3, vx: b.pvx + Math.cos(d) * sp, vy: b.pvy + Math.sin(d) * sp, born: time - 0.3, tw: rand(0, TAU), gold: true, hang: true, life: rand(12, 15) });
+    }
+  }
+  if (!small) { thud(0.05, 900, 0.5, 200); voice(SCALE[4] * 2, 0.025, 1.6, 0.01, 'triangle'); }
 }
 // A string of pearls: a comet that swings very close past a planet or a big moon (inside 1.3 of its
 // radius, without hitting it) is torn apart by the tide into 3 or 4 smaller pieces, each with its own shorter
@@ -2549,7 +2622,7 @@ function growTree(b, s, dt) {
   if (t.n % 10 === 0) voice(SCALE[(t.n / 10 + 2) % SCALE.length] * 2, 0.03, 1.4, 0.01, 'triangle');
   burst(b.px + Math.cos(wa) * (b.R + H * 0.8), b.py + Math.sin(wa) * (b.R + H * 0.8), 2, { vx: b.pvx, vy: b.pvy, speed: [5, 18], life: [0.3, 0.7], color: t.tip });
   if (t.n >= TREE_MAX) {
-    say(`The great tree on ${b.name} is fully grown`, bodyColor(b));
+    remark(`The great tree on ${b.name} is fully grown`, bodyColor(b));
     waves.push({ body: b, off: [Math.cos(wa) * (b.R + H * 0.7), Math.sin(wa) * (b.R + H * 0.7)], t0: time, dur: 2, r0: 4, r1: 60, color: t.tip, w: 1.6 });
     arpeggio(SCALE.slice(2, 9), 0.08, 0.07);
   }
@@ -2668,7 +2741,7 @@ function updateStretch(dt) {
   let want = 0;
   if (h && !warp) want = smooth(clamp((h.R * 12 - Math.hypot(ship.x - h.px, ship.y - h.py)) / (h.R * 7), 0, 1));  // from 12 radii out, full by 5
   stretch += (want - stretch) * (1 - Math.exp(-1.5 * dt));
-  if (stretch > 0.5 && !system.stretchSaid) { system.stretchSaid = true; say('So close to the black hole, time itself stretches', `rgb(${system.dustHalo})`); }
+  if (stretch > 0.5 && !system.stretchSaid) { system.stretchSaid = true; remark('So close to the black hole, time itself stretches', `rgb(${system.dustHalo})`, 'stretch'); }
 }
 
 // The pulsar's beat: each time one of a neutron star's beams sweeps across you, a note rings out (stepping
@@ -2802,9 +2875,9 @@ function shipSun(s, hx, hy, dt) {
   const inGust = SUN[2] > 0.08;
   if (inGust && !s.inGust && SUN[3] > 0.5) {
     thud(0.05, 2200, 1.3, 400);
-    if (!system.gustSaid) { system.gustSaid = true; say('A solar gust: coast and a sail opens to surf it, or tuck in behind a moon', `rgb(${system.identity.sun})`); }
+    if (!system.gustSaid) { system.gustSaid = true; remark('A solar gust: coast and a sail opens to surf it, or tuck in behind a moon', `rgb(${system.identity.sun})`, 'gust'); }
   }
-  if (inGust && SUN[3] < 0.2 && !system.shadeSaid) { system.shadeSaid = true; say('In the shadow: the gust passes you by', `rgb(${system.identity.sun})`); }
+  if (inGust && SUN[3] < 0.2 && !system.shadeSaid) { system.shadeSaid = true; remark('In the shadow: the gust passes you by', `rgb(${system.identity.sun})`, 'shade'); }
   s.inGust = inGust;
 }
 function updateGusts(dt) {
@@ -2919,7 +2992,7 @@ function sporeRoots(sp, b, a) {
   const x = b.px + Math.cos(a) * b.R, y = b.py + Math.sin(a) * b.R;
   burst(x, y, 6, { vx: b.pvx, vy: b.pvy, dir: a, spread: 1.6, speed: [6, 20], life: [0.4, 0.9], color: `${c0},${c1},${c2}` });
   voice(SCALE[(n + 2) % SCALE.length] * 4, 0.012, 1.2, 0.02, 'triangle');  // a tiny high chime
-  if (time - (system.sporeSaidAt ?? -99) > 30) { system.sporeSaidAt = time; say(`Spores from ${from.name} took root on ${b.name}`, bodyColor(from)); }
+  if (time - (system.sporeSaidAt ?? -99) > 30) { system.sporeSaidAt = time; remark(`Spores from ${from.name} took root on ${b.name}`, bodyColor(from)); }
 }
 function drawSpores() {
   ctx.save();
@@ -3000,9 +3073,9 @@ function plantSeed(b, near) {
       a: twin ? first.a + (Math.random() < 0.5 ? -1 : 1) * rand(10, 16) / b.R : a, h: bamboo ? rand(34, 38) : Math.random() < 0.15 ? rand(12, 17) : rand(4, 9), grow: 0, sway: rand(0, TAU), flip: Math.random() < 0.5 ? -1 : 1,
       kind: bamboo ? BAMBOO : pickKind(bloomOf(b)), tip: Math.random() < 0.25 ? pick(b.accents) : `${c0},${c1},${c2}`,
     });
-    if (twin) { b.bambooTwin = null; say('Double bamboo! What does it mean?', `rgb(${c0},${c1},${c2})`); }
+    if (twin) { b.bambooTwin = null; remark('Double bamboo! What does it mean?', `rgb(${c0},${c1},${c2})`); }
     else if (bamboo) {
-      say(`Bamboo is sprouting on ${b.name}!`, `rgb(${c0},${c1},${c2})`);
+      remark(`Bamboo is sprouting on ${b.name}!`, `rgb(${c0},${c1},${c2})`);
       if (Math.random() < 0.05) b.bambooTwin = time + rand(3, 5);
     }
   }
@@ -3148,10 +3221,7 @@ function updateComets(dt) {
     if (c.leaving) c.fade -= dt * 0.35;
     if (c.piece && c.dropped >= 40) c.fade -= dt * 0.5;  // a pearl's string is laid: it fades out
     const hit = bodies.find(b => Math.hypot(c.x - b.px, c.y - b.py) < b.R);
-    if (hit) {
-      burst(c.x, c.y, c.piece ? 16 : 40, { speed: [20, 100], life: [0.5, 1.2], color: '255,220,150' });
-      goldSplash(c, hit);
-    }
+    if (hit) cometImpact(c, hit);
     if (hit || c.fade <= 0) { removeAt(comets, i); continue; }
     // grazing a planet or a big moon tears a whole comet into a string of pearls: judged at its closest pass (when
     // it stops closing in), so one on its way to a crash doesn't count (it hits first: comets crash a lot)
@@ -3259,7 +3329,7 @@ function crackRock(i) {
   burst(k.x, k.y, 9, { vx: k.vx, vy: k.vy, speed: [40, 110], life: [0.5, 1.1], color: '215,222,245', shard: true });
   thud(0.2, 900, 0.35);
   arpeggio([SCALE[4], SCALE[6], SCALE[8]], 0.05, 0.06);
-  if (!system.crackedOnce) { system.crackedOnce = true; say('It cracked open into stardust', '#cfd8ff'); }
+  if (!system.crackedOnce) { system.crackedOnce = true; remark('It cracked open into stardust', '#cfd8ff', 'crack'); }
 }
 
 // ===== Seed lob =====
@@ -4142,12 +4212,12 @@ function makeRogue(id, saved) {
     spin: saved ? saved.spin || 0 : 0, spinRate: saved && saved.spinRate ? saved.spinRate : TAU / rand(70, 110) * pick([-1, 1]),
     px: 0, py: 0, pvx: 0, pvy: 0, petalAcc: 0, ready: 0,
     // on its path: `s` units along it at `rate` units a second; or away for another `away` seconds
-    present: false, s: 0, rate: ROGUE_LANE, away: saved ? saved.away ?? 30 : rand(20, 45), arcs: saved ? saved.arcs || 0 : 0,
+    present: false, s: 0, rate: ROGUE_LANE, away: saved ? saved.away ?? 30 : rand(50, 80), arcs: saved ? saved.arcs || 0 : 0, inDir: saved ? saved.inDir : undefined,
     arc: null, path: null,
   };
   if (saved && saved.present && saved.arc && saved.arc.w) {
     rogueBuild(b, saved.arc);
-    Object.assign(b, { present: true, s: saved.s || 0, rate: saved.rate ?? ROGUE_LANE });
+    Object.assign(b, { present: true, s: saved.s || 0, rate: saved.rate ?? ROGUE_LANE, inAt: time });
     bodies.push(b); gardens.push(b);
     rogueMove(b);
   } else if (saved && saved.present) b.away = rand(4, 10);  // (an older save's arc: it drifts back in on a new path)
@@ -4156,7 +4226,7 @@ function makeRogue(id, saved) {
 function rogueSave(r) {
   const b = rogue;
   return {
-    present: b.present, s: r(b.s, 100), rate: r(b.rate, 100), away: r(b.away, 10), arcs: b.arcs, arc: b.present ? b.arc : undefined,
+    present: b.present, s: r(b.s, 100), rate: r(b.rate, 100), away: r(b.away, 10), arcs: b.arcs, arc: b.present ? b.arc : undefined, inDir: b.inDir,
     spin: r(b.spin % TAU, 1000), spinRate: b.spinRate, bloomed: b.bloomed,
     plants: b.plants.map(p => [r(p.a, 1000), r(p.h, 10), p.kind, p.tip, p.flip, r(p.sway, 100)]),
   };
@@ -4188,6 +4258,7 @@ function rogueBands(R) {
 function rogueBuild(b, arc) {
   const ds = 6, xs = [], ys = [], ss = [], bands = rogueBands(b.R), zones = [], [a1, l1, p1, a2, l2, p2] = arc.w;
   let x = arc.x, y = arc.y, h = arc.h, len = 0, zone = null, inside = false, edge = 0, done = false;
+  let aimed = !arc.aim, toward = false, aimedAt = 0;
   for (let i = 0; i < 700; i++) {
     const r = Math.hypot(x, y);
     xs.push(x); ys.push(y); ss.push(len);
@@ -4200,8 +4271,18 @@ function rogueBuild(b, arc) {
     if (inside && r > ROGUE_OUT) { done = true; break; }
     const fl = arc.f ? arc.f[0] * Math.sin(len / arc.f[1] + arc.f[2]) : 0;  // the flower engine's flutter
     // a sailing arc's victory lap: a long curve round the middle, then one tight loop-the-loop, then away
-    const lap = arc.lap ? (len < arc.lap[1] ? arc.lap[0] : len < arc.lap[1] + arc.lap[3] ? arc.lap[2] : 0) : 0;
-    h += (a1 * Math.sin(len / l1 + p1) + a2 * Math.sin(len / l2 + p2) + fl + lap + arc.bias * Math.max(0, 1 - len / arc.bl)) * ds;
+    const lap = arc.lap ? (len < arc.lap[1] ? arc.lap[0] : len < arc.lap[1] + arc.lap[3] ? arc.lap[2] : 0) : 0;  // (older saves)
+    // a sailing arc steers for a point near the middle (never tighter than aim[2] across) till it's there or past
+    // it, then turns swoop[0] for swoop[1] (a loop-the-loop, or a wide swoop), then goes on its way
+    let steer = 0;
+    if (!aimed) {
+      const dx = arc.aim[0] - x, dy = arc.aim[1] - y, dot = dx * Math.cos(h) + dy * Math.sin(h);
+      if (dot > 0) toward = true;
+      if (dx * dx + dy * dy < 50 * 50 || (toward && dot < 0)) { aimed = true; aimedAt = len; }
+      else steer = clamp(angleDiff(Math.atan2(dy, dx), h) / 80, -1 / arc.aim[2], 1 / arc.aim[2]);
+    }
+    const swoop = arc.swoop && aimed && len - aimedAt < arc.swoop[1] ? arc.swoop[0] : 0;
+    h += (a1 * Math.sin(len / l1 + p1) + a2 * Math.sin(len / l2 + p2) + fl + lap + steer + swoop + arc.bias * Math.max(0, 1 - len / arc.bl)) * ds;
     x += Math.cos(h) * ds; y += Math.sin(h) * ds; len += ds;
   }
   b.arc = arc;
@@ -4271,6 +4352,14 @@ function roguePlan(b, make, rate, ok, strict, tries = 24) {
 // a curvature that wanders gently (the last few tries plain, in case nothing wavier will do)
 const rogueWander = (i, f = 1) => i >= 20 ? [0, 1, 0, 0, 1, 0] :
   [rand(0.6, 1.5) / 400 * f * pick([-1, 1]), rand(120, 220), rand(0, TAU), rand(0.4, 0.9) / 400 * f * pick([-1, 1]), rand(260, 420), rand(0, TAU)];
+// a point to steer through, turning no tighter than `turn` across: just clear of whatever sits in the middle,
+// inside the inner orbits for the first tries, further out for the later ones in case nothing nearer keeps clear
+function rogueAim(b, i, turn) {
+  const mid = bodies.filter(o => !o.rogue && Math.hypot(o.px, o.py) < 120);
+  const lo = Math.max(0, ...mid.map(o => Math.hypot(o.px, o.py) + rogueRoom(o))) + b.R + 30;
+  const r = rand(lo, i < 16 ? Math.max(lo + 60, system.innerR + 40) : Math.max(lo + 120, ARENA_R * 0.62)), t = rand(0, TAU);
+  return [Math.cos(t) * r, Math.sin(t) * r, turn];
+}
 // where it is and which way it's heading now, and which way is in toward the middle (+1: turning left)
 function rogueHeading(b) {
   rogueAt(b, b.s);
@@ -4287,7 +4376,7 @@ function updateRogue(dt) {
   }
   if (!b.present) {
     b.away -= dt;
-    if (b.away <= 0 && !warp) rogueArrive(b);
+    if (b.away <= 0 && !warp) { if (skyBusy()) b.away = rand(3, 6); else if (rogueArrive(b)) visitAt = time; }
     return;
   }
   const s = ship, aboard = s.landed === b;
@@ -4318,19 +4407,24 @@ function updateRogue(dt) {
     }
   }
 }
+// Each visit it comes in from a neighbouring side to the last (a sixth to a third of the way round), so over a
+// few visits it works its way round the system. It only ever comes in on a path that keeps clear: with none
+// just now, it waits a few seconds and looks again.
 function rogueArrive(b) {
-  const last = b.arc ? Math.atan2(b.arc.y, b.arc.x) : null;
-  roguePlan(b, i => {
-    let th = rand(0, TAU);
-    for (let j = 0; j < 12 && last !== null && Math.abs(angleDiff(th, last)) < 1.3; j++) th = rand(0, TAU);  // a new way in each visit
+  const last = b.inDir ?? null;
+  const ok = roguePlan(b, i => {
+    const th = last === null ? rand(0, TAU) : last + pick([-1, 1]) * rand(1, 2) * Math.PI / 6;
     return { x: Math.cos(th) * ROGUE_OUT, y: Math.sin(th) * ROGUE_OUT, h: th + Math.PI + rand(-0.6, 0.6), w: rogueWander(i), bias: 0, bl: 1, k: ROGUE_K[i % 5], sail: false };
-  }, ROGUE_BAND);
-  Object.assign(b, { present: true, s: 0, rate: ROGUE_BAND, ready: 0 });
+  }, ROGUE_BAND, null, !b.anyWay, 36);
+  if (!ok || !b.path) { b.away = rand(3, 6); return false; }
+  b.inDir = Math.atan2(b.arc.y, b.arc.x);
+  Object.assign(b, { present: true, s: 0, rate: ROGUE_BAND, ready: 0, inAt: time });
   b.arcs++;
   bodies.push(b); gardens.push(b);
   rogueMove(b);
-  say(b.arcs === 1 ? `A rogue planet drifts in: ${b.name}` : b.bloomed ? `${b.name} wanders back in, trailing petals` : `${b.name} wanders back in`, bodyColor(b));
+  remark(b.arcs === 1 ? `A rogue planet drifts in: ${b.name}` : b.bloomed ? `${b.name} wanders back in, trailing petals` : `${b.name} wanders back in`, bodyColor(b));
   voice(SCALE[0] / 2, 0.05, 4, 0.8); voice(SCALE[4], 0.02, 4, 1.2, 'triangle');  // a low, slow swell
+  return true;
 }
 // Near the edge with you on board, it bends back in toward the middle (from right where it is, as it's going).
 function rogueTurnBack(b) {
@@ -4353,23 +4447,27 @@ function rogueLetGo(b) {
   say(`${b.name} lets you go. It's ready to sail`, bodyColor(b));
 }
 // The flower engine: from where it is, it sails out of the system, picking up speed, on a path that keeps clear
-// of you. Not the shortest way: a flower engine is a whimsical thing. It flies a victory lap first, a long
-// curve most of the way round the middle, then one tight loop-the-loop, and only then wanders off, fluttering
-// side to side as it goes. Grander paths are tried first; ones that would run into anything are passed over,
-// down to a plain curve if nothing else will do. A chord, and it's off. (If no path keeps clear of you yet, it
-// tries again in a moment.)
+// of you. A flower engine isn't bound by anyone's gravity: it swings round and sails right through the middle
+// of the system, mostly throws one loop-the-loop there (or a wide swoop), and is off out the far side, fluttering
+// a little, in well under half a minute. Wilder paths are tried first; ones that would run into anything (or
+// take too long) are passed over, down to a plain curve if nothing else will do. A chord, and it's off. (If no
+// path keeps clear of you, and of everything else, it tries again in a moment.)
 function rogueSail(b) {
   b.sailTry = time;
   const { x, y, h, inward } = rogueHeading(b), s = ship;
   const clearOfShip = P => { for (let i = 0; i < P.xs.length && P.ss[i] < 300; i++) if (Math.hypot(P.xs[i] - s.x, P.ys[i] - s.y) < b.R + 30) return false; return true; };
+  const quick = P => P.len < 1600 && clearOfShip(P);
   const wild = i => i < 12 ? 1 : i < 20 ? 0.5 : 0;  // the first tries wildest, the last few plain
-  if (!roguePlan(b, i => {
-    const lap = i < 16 ? victoryLap(x, y, h, inward) : undefined;
+  let tries = 0;  // (counted here: roguePlan hands out i only up to 23)
+  if (!roguePlan(b, () => {
+    const i = tries++;
+    if (i >= 40) return { x, y, h, w: rogueWander(i % 24, 0.3), bias: -inward / rand(60, 110), bl: rand(200, 400), k: 1, sail: true };  // straight out
     return {
-      x, y, h, w: rogueWander(i, lap ? 0.4 : 0.3 + 2.2 * wild(i)), bias: lap ? 0 : (i % 3 ? inward : -inward) / rand(60, 110) * (0.5 + wild(i)), bl: rand(260, 460) * (0.5 + wild(i) / 2), k: 1, sail: true,
-      f: wild(i) ? [rand(0.007, 0.013) * wild(i) * pick([-1, 1]), rand(28, 48), rand(0, TAU)] : undefined, lap,
+      x, y, h, aim: rogueAim(b, i % 24, rand(90, 140)), w: rogueWander(i % 24, 0.3 * wild(i)), bias: 0, bl: 1, k: 1, sail: true,
+      swoop: !wild(i) ? undefined : Math.random() < 0.7 ? loopTheLoop() : [pick([-1, 1]) / rand(180, 300), rand(200, 420) * wild(i)],
+      f: wild(i) ? [rand(0.003, 0.006) * wild(i) * pick([-1, 1]), rand(40, 70), rand(0, TAU)] : undefined,
     };
-  }, b.rate, clearOfShip)) return;
+  }, b.rate, quick, true, 48)) return;
   b.s = 0;
   for (const f of CHORDS[0]) voice(f * 2, 0.03, 4.5, 0.4, 'triangle');
   voice(CHORDS[0][0] / 2, 0.05, 5, 0.6);
@@ -4377,21 +4475,10 @@ function rogueSail(b) {
   burst(b.px, b.py, 30, { vx: b.pvx, vy: b.pvy, speed: [20, 70], life: [1, 2], color: b.color.join(','), size: 2.6 });
   say(`${b.name} ${pick(['sails', 'blasts'])} off on its flower engine`, bodyColor(b));
 }
-// A victory lap from (x, y) heading h: [curvature, length] of a curve 230-320° round toward the middle, on a
-// circle that stays well inside the edge, then [curvature, length] of one tight loop (the other way, mostly).
-function victoryLap(x, y, h, inward) {
-  let R = rand(120, 240);
-  for (let k = 0; k < 6; k++) {  // shrink it till the whole circle fits inside
-    const cx = x - Math.sin(h) * inward * R, cy = y + Math.cos(h) * inward * R;
-    if (Math.hypot(cx, cy) + R < ARENA_R - 70) break;
-    R *= 0.8;
-  }
-  const r = rand(32, 50), way = Math.random() < 0.75 ? -inward : inward;
-  return [inward / R, R * rand(4, 5.6), way / r, TAU * r];
-}
+const loopTheLoop = () => { const r = rand(40, 65); return [pick([-1, 1]) / r, TAU * r]; };
 function rogueLeave(b) {
   if (ship.landed === b) rogueLetGo(b);  // (it shouldn't carry you out, but never leave you standing on nothing)
-  b.present = false; b.away = rand(70, 130);
+  b.present = false; b.away = LAB ? rand(8, 12) : rand(70, 130);
   bodies.splice(bodies.indexOf(b), 1); gardens.splice(gardens.indexOf(b), 1);
   if (cam.focus === b) cam.focus = gardens[0];
   for (let i = fireflies.length - 1; i >= 0; i--) if (fireflies[i].body === b) removeAt(fireflies, i);
@@ -4404,7 +4491,17 @@ function rogueLeave(b) {
     saveGame();
     return;
   }
-  say(b.bloomed ? `${b.name} drifts on, trailing petals. It will be back` : `${b.name} drifts on. It will be back`, bodyColor(b));
+  remark(b.bloomed ? `${b.name} drifts on, trailing petals. It will be back` : `${b.name} drifts on. It will be back`, bodyColor(b));
+}
+// (lab only) the whole path it means to fly, dashed
+function drawRoguePath(b) {
+  const { xs, ys } = b.path;
+  ctx.save();
+  ctx.strokeStyle = `rgba(${b.color.join(',')},0.4)`; ctx.lineWidth = px; ctx.setLineDash([4 * px, 6 * px]);
+  ctx.beginPath();
+  for (let i = 0; i < xs.length; i += 2) if (i) ctx.lineTo(xs[i], ys[i]); else ctx.moveTo(xs[i], ys[i]);
+  ctx.stroke();
+  ctx.restore();
 }
 // A dark wanderer: a short wake behind it, bending gently the way its arc turns, thinning and fading out.
 function drawRogueTrail(b) {
@@ -4508,6 +4605,21 @@ function updateParticles(dt) {
   for (let i = particles.length - 1; i >= 0; i--) {
     const p = particles[i];
     p.life -= dt;
+    if (p.ride) {
+      // a splash off a world, in that world's own frame: thrown up, falling back under its pull, gone when it lands
+      // (or `stick`: a glowing spot on the ground itself, carried round with it)
+      const b = p.ride;
+      if (p.stick) { p.x = b.px + p.stick[0]; p.y = b.py + p.stick[1]; }
+      else {
+        const rx = p.x - b.px, ry = p.y - b.py, r = Math.hypot(rx, ry) || 1, g = b.gm / (r * r);
+        p.vx -= rx / r * g * dt; p.vy -= ry / r * g * dt;
+        p.vx *= 1 - dt * 0.3; p.vy *= 1 - dt * 0.3;
+        p.x += (b.pvx + p.vx) * dt; p.y += (b.pvy + p.vy) * dt;
+        if (r < b.R - 0.5 && p.life < p.max - 0.1) p.life = 0;
+      }
+      if (p.life <= 0) removeAt(particles, i);
+      continue;
+    }
     if (p.grav) {
       const [ax, ay] = gravityAt(p.x, p.y);
       p.vx += ax * dt; p.vy += ay * dt;
@@ -5018,10 +5130,12 @@ function render() {
   drawBackground();
   if (W && H) drawAmbient();
   if (allBloomed && W) {
-    const k = clamp((time - allBloomedAt) / 3, 0, 1), [r, g, b] = system.palette[0];
+    // the whole sky lights up as everything blooms, then settles to a faint glow over the next ten seconds or
+    // so: a full glow kept on washed some systems out, just as you'd stop to look at what you'd grown
+    const t = time - allBloomedAt, k = clamp(t / 3, 0, 1) * mix(1, 0.3, smooth(clamp((t - 4) / 10, 0, 1))), [r, g, b] = system.palette[0];
     const sky = ctx.createRadialGradient(W / 2, H / 2, 0, W / 2, H / 2, Math.max(W, H) * 0.7);
-    sky.addColorStop(0, `rgba(${r},${g},${b},${0.06 * k})`);
-    sky.addColorStop(1, `rgba(${r},${g},${b},${0.015 * k})`);
+    sky.addColorStop(0, `rgba(${r},${g},${b},${0.05 * k})`);
+    sky.addColorStop(1, `rgba(${r},${g},${b},${0.012 * k})`);
     ctx.save(); ctx.globalCompositeOperation = 'lighter'; ctx.fillStyle = sky; ctx.fillRect(0, 0, W, H); ctx.restore();
   }
 
@@ -5663,7 +5777,11 @@ function drawBody(b) {
   const sx = Math.cos(la), sy = Math.sin(la);
   // a rogue planet is a dark wanderer (a darker fill, even planted, and a broken rim), fading in and out past the edge
   const dim = b.rogue ? 0.2 + 0.5 * bloom : 1;
-  if (b.rogue) { b.fade = clamp((ROGUE_OUT - Math.hypot(b.px, b.py)) / 70, 0, 1); drawRogueTrail(b); }
+  if (b.rogue) {  // it fades in at the edge (or where it appears, after a reload or in the lab)
+    b.fade = clamp((ROGUE_OUT - Math.hypot(b.px, b.py)) / 70, 0, 1) * clamp((time - (b.inAt ?? -99)) / 3, 0, 1);
+    drawRogueTrail(b);
+    if (system.lab && system.lab.showPath) drawRoguePath(b);
+  }
   ctx.save();
   ctx.translate(b.px, b.py);
   if (b.rogue) ctx.globalAlpha = b.fade;
@@ -6128,7 +6246,7 @@ function makeLaneSprite() {
 function drawExit() {
   if (!exit) return;
   if (!laneSprite) laneSprite = makeLaneSprite();
-  const a = clamp((time - exit.born) / 3, 0, 1) * (0.85 + 0.15 * Math.sin(time * 0.9));
+  const t = time - exit.born, a = clamp(t / 3, 0, 1) * (0.85 + 0.15 * Math.sin(time * 0.9)) * mix(1, 0.65, smooth(clamp((t - 4) / 10, 0, 1)));  // (bright as it opens, then quieter)
   ctx.save();
   ctx.globalCompositeOperation = 'lighter';
   ctx.rotate(exit.angle);
@@ -6475,8 +6593,8 @@ function drawHUD() {
   const cardBottom = drawCard(Math.max(H * 0.13, y + 30));
   if (message) {
     const age = time - message.t;
-    if (age < 4) {
-      ctx.globalAlpha = clamp(4 - age, 0, 1);
+    if (age < MSG_TIME) {
+      ctx.globalAlpha = clamp(MSG_TIME - age, 0, 1);
       ctx.fillStyle = message.color;
       ctx.font = `${W < 500 ? 15 : 17}px ui-monospace, Consolas, monospace`;
       const my = Math.max(H * 0.16, y + 34, cardBottom + 26);

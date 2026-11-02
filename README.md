@@ -45,8 +45,9 @@ right button for gentle thrust; landed, drag back from the ship to throw seeds.
 
 - Endless generated star systems: twin planets, black holes, ringed gas giants you can vanish into,
   crystal moons, pairs of dwarf stars, a rare neutron star and more, each with its own colours, sky and music.
-- Comets with golden trails, rogue planets, solar gusts, passing stars and eclipses, geysers and thick air,
-  solar-wind currents to ride, asteroids to crack open, seed pods to tow, and pollen to ferry between gardens.
+- Comets with golden trails, rogue planets with flowers of their own, solar gusts, passing stars and eclipses,
+  geysers and thick air, solar-wind currents to ride, asteroids to crack open, seed pods to tow, and pollen
+  to ferry between gardens.
 - Music made from play: every pickup and planting is a note, and every garden in bloom adds a layer.
 - A star map of the systems you've passed through, and a photo mode.
 - Your progress is saved in your browser.
@@ -55,8 +56,8 @@ right button for gentle thrust; landed, drag back from the ship to throw seeds.
 
 ## Tiny by design
 
-The whole game is two files: a 2 KB `index.html` and a 368 KB `game.js`. Compressed, that's about
-**119 KB**, smaller than the screenshot at the top of this page.
+The whole game is two files: a 2 KB `index.html` and a 377 KB `game.js`. Compressed, that's about
+**122 KB**, smaller than the screenshot at the top of this page.
 
 There are no images, no sound files, no fonts and no libraries. Every star, planet, plant and comet is
 drawn by code as you play, and every sound is synthesised live by your browser: the engine's hum, the
@@ -64,10 +65,9 @@ chime of each pickup, the clunk of a landing and the music of a garden in bloom.
 
 The gravity is real, too: a restricted n-body simulation running live in your browser. Your ship, every
 mote of stardust, every comet and every asteroid is pulled by every planet and moon at once, with
-inverse-square gravity worked out 120 times a second. The dotted line
-ahead of you is a live simulation of where you're heading, up to half a minute into the future, with the
-moons moving along their orbits as it goes. The planets and moons themselves follow fixed orbits, so a
-system stays stable however long you play.
+inverse-square gravity worked out 120 times a second. The dotted line ahead of you is a live simulation of
+where you're heading, up to half a minute into the future, with the moons moving along their orbits as it
+goes. The planets and moons themselves follow fixed orbits, so a system stays stable however long you play.
 
 ## Credits
 

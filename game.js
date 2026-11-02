@@ -102,12 +102,15 @@ function shuffle(arr) {
 // Neon on thin lines and small blooms, dark night-sky backgrounds (never red or green), the first colour
 // leads (it goes to the home planet). Chosen with an art-critic pass over rendered variants.
 const THEMES = [
-  { name: 'Navy', nebula: ['#0a1024', '#020409'], colors: [[63, 224, 255], [255, 79, 216], [255, 216, 74]] },
-  { name: 'Aurora', nebula: ['#05141c', '#01050a'], colors: [[77, 255, 160], [58, 215, 255], [255, 110, 199]] },
-  { name: 'Sunset', nebula: ['#120c28', '#04030b'], colors: [[255, 138, 61], [255, 79, 139], [255, 210, 63]], extra: ['95,215,255'] },
+  { name: 'Navy', nebula: ['#0a1024', '#020409'], colors: [[63, 224, 255], [255, 79, 216], [255, 196, 60]] },
+  // (Aurora leads with cyan: its big green home planet was its weakest look; the green goes to a moon)
+  { name: 'Aurora', nebula: ['#05132a', '#01040b'], colors: [[58, 215, 255], [255, 110, 199], [77, 255, 160]] },
+  { name: 'Sunset', nebula: ['#120c28', '#04030b'], colors: [[255, 138, 61], [255, 79, 139], [255, 188, 52]], extra: ['95,215,255'] },
   { name: 'Synthwave', nebula: ['#140a22', '#040209'], colors: [[255, 63, 180], [46, 230, 255], [167, 123, 255]] },
-  { name: 'Deep', nebula: ['#07080e', '#020308'], colors: [[93, 255, 168], [255, 122, 107], [90, 155, 255]] },
+  { name: 'Deep', nebula: ['#0e0a2a', '#03020b'], colors: [[50, 255, 200], [64, 140, 255], [255, 92, 128]] },
   { name: 'Candy', nebula: ['#160b1f', '#050208'], colors: [[192, 139, 255], [125, 255, 208], [255, 154, 213]] },
+  // warm like Sunset but its own: coral, amber and turquoise on a magenta-plum sky
+  { name: 'Plum', nebula: ['#1d0a26', '#06020b'], colors: [[255, 112, 92], [255, 190, 60], [56, 226, 214]] },
 ];
 function paint(defs, theme) {
   const cols = [theme.colors[0], ...shuffle(theme.colors.slice(1))];
@@ -115,7 +118,7 @@ function paint(defs, theme) {
   for (const d of defs) {
     if (d.anchor) continue;
     // with more bodies than theme colours, a repeated colour comes back lighter so names don't clash
-    const k = i++, base = cols[k % cols.length], c = k < cols.length ? base : base.map(v => Math.round(mix(v, 255, 0.45)));
+    const k = i++, base = cols[k % cols.length], c = k < cols.length ? base : base.map(v => Math.round(mix(v, 255, 0.3)));
     d.color = c;
     d.accents = [...theme.colors.filter(o => o !== c).map(o => o.join(',')), ...(theme.extra || []), '255,250,230'];
   }
@@ -144,9 +147,9 @@ function plantName(old) {
 const FIRST_SYSTEM = {
   nebula: THEMES[0].nebula, theme: 'Navy', archetype: 'first', ring: 0, centralMass: 1, sunAngle: -2.3,
   defs: [
-    { name: 'Welwitschia', R: 72, mass: 1, orbit: 0, start: 0, color: [63, 224, 255], accents: ['255,79,216', '255,216,74', '255,250,230'] },
-    { name: 'Nepenthes', R: 16, mass: 0.025, orbit: 230, start: 2.4, color: [255, 79, 216], accents: ['63,224,255', '255,216,74', '255,250,230'] },
-    { name: 'Xanthorrhoea', R: 22, mass: 0.04, orbit: 380, start: -0.8, color: [255, 216, 74], accents: ['63,224,255', '255,79,216', '255,250,230'] },
+    { name: 'Welwitschia', R: 72, mass: 1, orbit: 0, start: 0, color: [63, 224, 255], accents: ['255,79,216', '255,196,60', '255,250,230'] },
+    { name: 'Nepenthes', R: 16, mass: 0.025, orbit: 230, start: 2.4, color: [255, 79, 216], accents: ['63,224,255', '255,196,60', '255,250,230'] },
+    { name: 'Xanthorrhoea', R: 22, mass: 0.04, orbit: 380, start: -0.8, color: [255, 196, 60], accents: ['63,224,255', '255,79,216', '255,250,230'] },
   ],
 };
 
@@ -537,6 +540,104 @@ LAB_SYSTEMS.push(
     },
   },
 );
+// the newest batch goes first, so a fresh lab run starts with what's new
+LAB_SYSTEMS.unshift(
+  {
+    name: 'Eclipse', make: (n, prev) => labRoomyMoon(n, prev, 'classic', null),
+    desc: 'Stay on your planet: in a few seconds the big moon passes in front of the sun. Watch the light go',
+    // the sun set behind where the biggest moon will be in about 6 s, seen from home
+    setup() {
+      const h = gardens[0], m = bodies.filter(b => b !== h && !b.anchor).sort((a, b) => b.R - a.R)[0];
+      if (!m) return;
+      const [x, y] = bodyPos(m, 6);
+      system.sunAngle = Math.atan2(y - h.py, x - h.px);
+      eclipseNext = 0; bgKey = '';
+    },
+  },
+  {
+    name: 'Stretched time', make: (n, prev) => rollSystem(n, prev, { archetype: 'hole', feature: null }),
+    desc: 'You start in orbit round the black hole. Drop in closer: the music sinks and sparks drift in slow motion',
+    setup() {
+      const h = system.hole;
+      if (!h) return;
+      const r = h.R * 9, a = rand(0, TAU), x = h.px + Math.cos(a) * r, y = h.py + Math.sin(a) * r, v = Math.sqrt(h.gm / r);
+      Object.assign(ship, { landed: null, x, y, vx: h.pvx - Math.sin(a) * v, vy: h.pvy + Math.cos(a) * v, angle: a + Math.PI, angVel: 0, holdSeeds: false, airborne: true, tow: null, slide: null });
+    },
+  },
+  {
+    name: 'Lagrange pools', make: (n, prev) => labRoomyMoon(n, prev, 'classic', null),
+    desc: 'Faint dust gathers 60° ahead of and behind the big moon, held by real gravity. Go and find it',
+    setup() {
+      poolHost = poolMoon(); poolTimer = 0;
+    },
+  },
+);
+// batch 2 (gardens), in front of batch 1
+const labBloom = b => { while (b.plants.length < b.maxPlants) plantSeed(b, rand(0, TAU)); message = null; waves = []; particles = []; };
+LAB_SYSTEMS.unshift(
+  {
+    name: 'Flyby wake', make: (n, prev) => labRoomyMoon(n, prev, 'classic', null),
+    desc: 'You start skimming your planet in full bloom: watch the garden sway in your wake and pick up its pollen',
+    setup() {
+      const h = gardens[0];
+      labBloom(h);
+      const r = h.R + 12, a = rand(0, TAU), v = Math.sqrt(h.gm / r) * 1.04;
+      Object.assign(ship, { landed: null, x: h.px + Math.cos(a) * r, y: h.py + Math.sin(a) * r, vx: h.pvx - Math.sin(a) * v, vy: h.pvy + Math.cos(a) * v, angle: a + Math.PI / 2, angVel: 0, holdSeeds: false, airborne: true, tow: null, slide: null });
+    },
+  },
+  {
+    name: 'Great tree', make: (n, prev) => labRoomyMoon(n, prev, 'classic', null),
+    desc: 'Landed on a garden in full bloom with 700 seeds: stay a while and a great tree grows beside you (100 seeds)',
+    setup() {
+      const h = gardens[0];
+      labBloom(h);
+      Object.assign(ship, { holdSeeds: false, seeds: Math.max(ship.seeds, 700), landedAt: time, landedBloomed: true });
+    },
+  },
+  {
+    name: 'New plants', make: (n, prev) => labRoomyMoon(n, prev, 'classic', null),
+    desc: 'Landed with plenty of seeds: among the usual plants come dandelions and ferns',
+    setup() { Object.assign(ship, { holdSeeds: false, seeds: Math.max(ship.seeds, 200) }); },
+  },
+);
+// batch 3 (visitors), in front of everything
+LAB_SYSTEMS.unshift(
+  {
+    name: 'Passing star', make: (n, prev) => labRoomyMoon(n, prev, 'classic', null),
+    desc: 'A wandering star sweeps past the edge in a few seconds. Fly out toward it: everything loose bends its way',
+    setup() { startPassing(12); },
+  },
+  {
+    name: 'String of pearls', make: (n, prev) => labRoomyMoon(n, prev, 'classic', null),
+    desc: 'A comet is about to graze the planet and break apart. Chase the pearls: 2 seeds each',
+    // a comet a few seconds out, on a path that swings past the home planet at about 1.3 of its radius
+    setup() {
+      const h = gardens[0], rp = h.R * 1.3, a = rand(0, TAU), v = Math.sqrt(2 * h.gm / rp) * 0.9;
+      const x = h.px + Math.cos(a) * rp, y = h.py + Math.sin(a) * rp, vx = -Math.sin(a) * v, vy = Math.cos(a) * v;
+      // run it backwards 4 s from its closest pass, so it arrives on that line
+      let cx = x, cy = y, cvx = -vx, cvy = -vy;
+      for (let k = 0; k < 480; k++) { const [ax, ay] = gravityAt(cx, cy); cvx += ax * STEP; cvy += ay * STEP; cx += cvx * STEP; cy += cvy * STEP; }
+      comets.length = 0;  // (the lab's setup can run twice on arrival)
+      comets.push({ x: cx, y: cy, vx: -cvx, vy: -cvy, age: 3, travel: 0, dropped: 0, caught: false, fade: 1, leaving: false, spin: 0, shape: Array.from({ length: 7 }, () => rand(0.75, 1.15)) });
+    },
+  },
+);
+LAB_SYSTEMS.unshift(
+  {
+    name: 'Into the clouds', make: (n, prev) => rollSystem(n, prev, { archetype: 'gas', feature: null }),
+    desc: 'You start just above a gas giant, heading in. Dive: the clouds close over you, sound muffles, lightning. Fly by the dotted line',
+    setup() {
+      const g = bodies.find(b => b.kind === 'gas');
+      if (!g) return;
+      const a = rand(0, TAU), r = g.R + 40, v = 30;
+      Object.assign(ship, { landed: null, x: g.px + Math.cos(a) * r, y: g.py + Math.sin(a) * r, vx: g.pvx - Math.cos(a) * v, vy: g.pvy - Math.sin(a) * v, angle: a + Math.PI, angVel: 0, holdSeeds: false, airborne: true, tow: null, slide: null });
+    },
+  },
+  {
+    name: 'Plum', make: (n, prev) => { let sys, k = 0; do sys = labRoomyMoon(n, { ...prev, theme: null }, 'classic', null); while (sys.theme !== 'Plum' && ++k < 60); return sys; },
+    desc: 'The new colour theme: coral, amber and turquoise on a magenta-plum sky',
+  },
+);
 // lab systems with their big moon kept clear of moonlets (so it has room to hold an orbit), no crystal
 function labRoomyMoon(n, prev, archetype, feature) {
   const sys = rollSystem(n, prev, { archetype, feature });
@@ -657,7 +758,7 @@ function describeTag(tag) {
   return {
     hole: `${named('hole')} is a black hole. Its disk swallows stardust; touch it and it flings you out`,
     neutron: `${named('neutron')} is a neutron star: tiny, with a huge pull. Swing close past it to be whipped round`,
-    gas: `${named('gas')} is a gas giant with no ground: dive through its clouds. Its moons are the gardens`,
+    gas: `${named('gas')} is a gas giant with no ground: dive into its clouds and vanish. Its moons are the gardens`,
     crystal: `${named('crystal')} is a crystal moon. Seeds grow into chiming crystals`,
     pollen: needer ? `${needer.name} only grows with pollen from ${needer.needs}. Grow ${needer.needs} a little, then fly its pollen over` : 'A pollen errand',
     current: 'A solar wind blows along the bright band. Fly with it for a free boost',
@@ -726,6 +827,7 @@ function buildSystem(n, saved = null) {
   allBodies = sys.defs.map(def => ({
     ...def, name: def.anchor ? def.name : plantName(def.name || ''), dir: def.dir || 1, angle: def.angle ?? def.start, bloomed: !!def.bloomed,
     plants: (def.plants || []).map(([a, h, kind, tip, flip, sway]) => ({ a, h, kind, tip, flip, sway, grow: 1 })),
+    tree: def.tree ? { a: def.tree[0], n: def.tree[1], tip: def.tree[2], flip: def.tree[3], sway: def.tree[4] } : null,
     maxPlants: Math.max(8, Math.round(TAU * def.R / 4)), glow: null,
     // every body turns slowly, so its garden rolls through day and night
     spin: def.spin ?? 0, spinRate: def.spinRate ?? (def.anchor ? 0 : TAU / rand(80, 150) * (Math.random() < 0.8 ? 1 : -1)),
@@ -791,7 +893,7 @@ const homeGM = () => cfg.gravity * system.centralMass;
 // these compute them `ahead` seconds into the future for the trajectory preview.
 function bodyPos(b, ahead = 0) {
   if (!ahead) return [b.px, b.py];
-  if (b.rogue) return [b.px + b.pvx * ahead, b.py + b.pvy * ahead];  // (a rogue planet's own path is stepped in predict)
+  if (b.rogue || b.passing) return [b.px + b.pvx * ahead, b.py + b.pvy * ahead];  // (a rogue planet's own path is stepped in predict)
   if (!b.orbit) return [0, 0];
   const a = b.angle + b.omega * ahead;
   let x = Math.cos(a) * b.orbit, y = Math.sin(a) * b.orbit;
@@ -799,7 +901,7 @@ function bodyPos(b, ahead = 0) {
   return [x, y];
 }
 function bodyVel(b, ahead = 0) {
-  if (!ahead || b.rogue) return [b.pvx, b.pvy];
+  if (!ahead || b.rogue || b.passing) return [b.pvx, b.pvy];
   if (!b.orbit) return [0, 0];
   const a = b.angle + b.omega * ahead, v = b.omega * b.orbit;
   let vx = -Math.sin(a) * v, vy = Math.cos(a) * v;
@@ -1026,7 +1128,7 @@ function drawHull(design, throttle, lineWidth) {
 }
 
 // ===== Sound (synthesized, no files) =====
-let actx = null, master = null, fxSend = null, engine = null, scrape = null, noiseBuf = null, muted = false;
+let actx = null, master = null, muffle = null, fxSend = null, engine = null, scrape = null, noiseBuf = null, muted = false;
 // iPhones only let sound start inside a finger lift (touchend) or a click, so this runs on those too, and
 // plays a silent blip inside the gesture, which unlocks audio for the rest of the session.
 function initAudio() {
@@ -1039,7 +1141,9 @@ function initAudio() {
     actx = new (window.AudioContext || window.webkitAudioContext)();
     master = actx.createGain();
     master.gain.value = 0.8;
-    master.connect(actx.destination);
+    muffle = actx.createBiquadFilter();  // everything muffled deep in a gas giant's clouds
+    muffle.type = 'lowpass'; muffle.frequency.value = 20000; muffle.Q.value = 0.5;
+    master.connect(muffle); muffle.connect(actx.destination);
 
     // a soft echo that every note feeds into
     const delay = actx.createDelay(1), fb = actx.createGain(), wet = actx.createGain();
@@ -1074,7 +1178,7 @@ function initAudio() {
 function voice(freq, vol, dur, attack = 0.01, type = 'sine') {
   if (!actx || muted) return;
   const t = actx.currentTime, o = actx.createOscillator(), g = actx.createGain();
-  o.type = type; o.frequency.value = freq;
+  o.type = type; o.frequency.value = freq * pitchK();  // (lower near a black hole: see stretched time)
   g.gain.setValueAtTime(0.0001, t);
   g.gain.exponentialRampToValueAtTime(vol, t + attack);
   g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
@@ -1114,7 +1218,9 @@ function updateEngineSound() {
   if (!engine) return;
   const th = muted || paused || title ? 0 : ship.throttle, t = actx.currentTime;
   engine.gain.gain.setTargetAtTime(th * 0.1, t, 0.05);
-  engine.filter.frequency.setTargetAtTime(180 + th * 520, t, 0.05);
+  engine.filter.frequency.setTargetAtTime((180 + th * 520) * pitchK(), t, 0.05);
+  master.gain.setTargetAtTime(0.8 * (1 - 0.35 * eclipse), t, 0.4);  // an eclipse hushes everything
+  muffle.frequency.setTargetAtTime(cloudMuffle(), t, 0.15);
   // the scrape fades in and out over a tenth of a second or so, so little hops along the ground don't stutter it
   const slip = muted || paused || title || !ship.slide || !touching(ship) ? 0 : ship.slip || 0;
   scrape.gain.gain.setTargetAtTime(0.06 * smooth(clamp((slip - 1) / 30, 0, 1)), t, slip ? 0.06 : 0.15);
@@ -1491,7 +1597,7 @@ function enterSystem(n, saved = null) {
   ship = {
     x: 0, y: 0, vx: 0, vy: 0, angle: la, angVel: 0, throttle: 0, emitAcc: 0,
     fuel: FUEL_MAX, empty: false, seeds: saved ? saved.seeds || 0 : 0,
-    landed: gardens[0], landAngle: la, tumble: 0, plantTimer: 0, snapping: false, pollen: null, tow: null,
+    landed: gardens[0], landAngle: la, tumble: 0, plantTimer: 0, plantRun: 0, snapping: false, pollen: null, tow: null,
     sailOpen: 0, sailPush: 0,  // the solar sail (gust systems only, opening by itself in a gust): how far out, its push
     holdSeeds: true,  // starting on a planet doesn't plant your seeds there: take off and land first
   };
@@ -1500,6 +1606,8 @@ function enterSystem(n, saved = null) {
   parkShip();
   motes = []; comets = []; particles = []; fireflies = []; rocks = []; rockTimer = 0; waves = []; allBloomedAt = -99; card = null;
   traces = []; shipTrack = newTrack();
+  eclipse = 0; eclipseOn = null; eclipseNext = time + 20; stretch = 0; pulsarD = null; setupPools(); passing = null;
+  cloudFade = 0; cloudBody = null; cloudIn = false; cloudFlash = null;
   lob = null; lobbed = []; sowing = []; pods = []; podTimer = POD_RESPAWN;
   if (system.identity.feature === 'rocks') for (let i = 0; i < 4; i++) spawnRock();
   if (system.identity.feature === 'tow') for (let i = 0; i < 2; i++) spawnPod();  // not saved: fresh pods each visit
@@ -1541,6 +1649,7 @@ function saveGame() {
       vents: b.vents ? b.vents.map(v => ({ a: v.a, period: v.period, phase: v.phase })) : undefined,
       angle: r(b.angle, 1000), bloomed: b.bloomed, spin: r(b.spin % TAU, 1000), spinRate: b.spinRate,
       plants: b.plants.map(p => [r(p.a, 1000), r(p.h, 10), p.kind, p.tip, p.flip, r(p.sway, 100)]),
+      tree: b.tree ? [r(b.tree.a, 1000), b.tree.n, b.tree.tip, b.tree.flip, r(b.tree.sway, 100)] : undefined,
     })),
   };
   try { localStorage.setItem(SAVE_KEY, JSON.stringify(data)); } catch (e) { /* storage blocked */ }
@@ -1655,6 +1764,13 @@ function update(dt) {
   updatePods(dt);
   updateLob(dt);
   checkSeedMilestone();
+  updateEclipse(dt);
+  updateStretch(dt);
+  updatePulsar();
+  updatePools(dt);
+  updateWake(dt);
+  updatePassing(dt);
+  updateClouds(dt);
   updateFireflies(dt);
   updateExit(dt);
   updateParticles(dt);
@@ -1829,8 +1945,9 @@ function updateShip(dt) {
       s.landAngle += b.spinRate * dt;  // ride along as the body turns
       parkShip();
       s.fuel = Math.min(FUEL_MAX, s.fuel + LAND_REFUEL * dt);
-      // (aiming a throw pauses the planting, and once you've thrown the rest are kept for throwing)
-      if (s.seeds > 0 && !s.holdSeeds && !lob && !b.bloomed && !(b.needs && !b.pollinated)) {  // a garden in full bloom doesn't take more seeds
+      // (aiming a throw pauses the planting, and it waits a couple of seconds after each throw, so throws can
+      // follow one another; then it carries on)
+      if (s.seeds > 0 && !s.holdSeeds && !lob && time > (s.lobPause ?? -9) && !b.bloomed && !(b.needs && !b.pollinated)) {  // a garden in full bloom doesn't take more seeds
         s.plantTimer -= dt;
         if (s.plantTimer <= 0) {
           // the first 15 seeds of a landing go in at the usual pace, then each a little quicker (down to
@@ -1838,7 +1955,7 @@ function updateShip(dt) {
           s.plantTimer = Math.max(0.06, 0.12 * 0.96 ** Math.max(0, s.plantRun - 15));
           s.plantRun++; s.seeds--; plantSeed(b, s.landAngle);
         }
-      }
+      } else if (b.bloomed && s.landedBloomed && s.seeds > TREE_MIN && !s.holdSeeds && !lob && time > (s.lobPause ?? -9) && !b.poly && !b.rogue && time - s.landedAt > 1.5) growTree(b, s, dt);
       return;
     }
     s.landed = null;  // enough thrust away from the ground: lift off
@@ -1937,6 +2054,7 @@ function snapAssist(dt) {
 function land(b, la, speed) {
   const s = ship;
   s.landed = b; s.landAngle = la; s.angVel = 0; s.plantTimer = 0.3; s.plantRun = 0; s.snapping = false; s.landedAt = time; s.slide = null;
+  s.landedBloomed = b.bloomed;  // (a great tree only grows on a garden that was already in bloom when you landed)
   parkShip();
   const [c0, c1, c2] = b.color;
   burst(s.x - Math.cos(la) * FOOT, s.y - Math.sin(la) * FOOT, 6 + speed * 0.6, {
@@ -2100,7 +2218,7 @@ function cloudDrag(o, dt, isShip) {
       const col = Math.random() < 0.7 ? b.color.join(',') : pick(b.accents);
       particles.push({ x: o.x + rand(-6, 6), y: o.y + rand(-6, 6), vx: o.vx * 0.2 + rand(-12, 12), vy: o.vy * 0.2 + rand(-12, 12), life: rand(0.7, 1.4), max: 1.4, color: col, size: rand(2, 3.2), grav: false });
     }
-    if (!b.divedAt) { b.divedAt = time; say(`Diving into the clouds of ${b.name}`, bodyColor(b)); thud(0.08, 600, 1.2, 120); }
+    if (!b.divedAt) { b.divedAt = time; say(`Diving into the clouds of ${b.name}, out of sight`, bodyColor(b)); thud(0.08, 600, 1.2, 120); }
   }
 }
 
@@ -2208,6 +2326,403 @@ function updateGeysers(dt) {
 function puffedUp(b) {
   voice(SCALE[4] * 2, 0.025, 1.2, 0.05, 'triangle');
   if (!system.puffSaid) { system.puffSaid = true; say(`A geyser on ${b.name} lifts you. Ride it up, catch the dust`, bodyColor(b)); }
+}
+
+// ===== Vanishing into a gas giant =====
+// Dive below a gas giant's cloud tops and the clouds close over you: the deeper you go, the more the ship
+// fades behind them (a third of the way in it's a faint ghost), the sound grows muffled, and now and then
+// lightning flickers somewhere in the deep. You never lose yourself: the engine's glow shows through, and the
+// dotted line is drawn on top of the clouds at full strength, the instrument you fly by in there. Climbing out
+// through the cloud tops throws off a ring of cloud and lifts the muffle with a whoosh. Physics unchanged.
+let cloudFade = 0, cloudBody = null, cloudFlash = null, cloudIn = false;
+function updateClouds(dt) {
+  let depth = 0;
+  for (const b of bodies) {
+    if (b.kind !== 'gas') continue;
+    const r = Math.hypot(ship.x - b.px, ship.y - b.py);
+    if (r < b.R && 1 - r / b.R > depth) { depth = 1 - r / b.R; cloudBody = b; }
+  }
+  const want = warp ? 0 : smooth(clamp(depth / 0.3, 0, 1));
+  cloudFade += (want - cloudFade) * (1 - Math.exp(-(want > cloudFade ? 3 : 4) * dt));
+  if (cloudFade > 0.4 && Math.random() < 0.45 * dt) {  // lightning in the deep, and a far rumble
+    cloudFlash = { t: time, x: ship.x + rand(-70, 70), y: ship.y + rand(-70, 70) };
+    thud(0.05, 160, 1.4, 50);
+  }
+  if (cloudFade > 0.4) cloudIn = true;
+  else if (cloudIn && cloudFade < 0.15) {  // breaching the cloud tops
+    cloudIn = false;
+    const b = cloudBody, s = ship, a = Math.atan2(s.y - b.py, s.x - b.px);
+    burst(s.x, s.y, 22, { vx: s.vx * 0.5, vy: s.vy * 0.5, dir: a, spread: 2.4, speed: [15, 50], life: [0.6, 1.3], color: b.color.join(','), size: 2.6 });
+    thud(0.05, 2400, 0.6, 600);
+  }
+}
+const cloudMuffle = () => 20000 * Math.pow(700 / 20000, cloudFade);  // the master low-pass: 20 kHz out here, 700 Hz deep in
+function drawCloudCover() {
+  if (cloudFade < 0.01 || !cloudBody) return;
+  const b = cloudBody, s = ship, dk = b.color.map(v => Math.round(mix(v, 8, 0.8))).join(','), lit = b.color.map(v => Math.round(mix(v, 255, 0.6))).join(',');
+  ctx.save();
+  ctx.beginPath(); ctx.arc(b.px, b.py, b.R, 0, TAU); ctx.clip();
+  const cover = ctx.createRadialGradient(s.x, s.y, 0, s.x, s.y, 140);
+  cover.addColorStop(0, `rgba(${dk},${0.92 * cloudFade})`);
+  cover.addColorStop(0.5, `rgba(${dk},${0.75 * cloudFade})`);
+  cover.addColorStop(1, `rgba(${dk},${0.5 * cloudFade})`);
+  ctx.fillStyle = cover;
+  ctx.fillRect(b.px - b.R, b.py - b.R, 2 * b.R, 2 * b.R);
+  ctx.globalCompositeOperation = 'lighter';
+  if (cloudFlash && time - cloudFlash.t < 0.35) {
+    const k = 1 - (time - cloudFlash.t) / 0.35, f = cloudFlash, g = ctx.createRadialGradient(f.x, f.y, 0, f.x, f.y, 90);
+    g.addColorStop(0, `rgba(${lit},${0.3 * k * cloudFade})`); g.addColorStop(1, `rgba(${lit},0)`);
+    ctx.fillStyle = g; ctx.fillRect(f.x - 90, f.y - 90, 180, 180);
+  }
+  if (s.throttle > 0.02) {  // the engine's glow through the clouds
+    const ex = s.x - Math.cos(s.angle) * 8, ey = s.y - Math.sin(s.angle) * 8, plume = SHIPS[prefs.ship].plume[0];
+    const g = ctx.createRadialGradient(ex, ey, 0, ex, ey, 16);
+    g.addColorStop(0, `rgba(${plume},1)`); g.addColorStop(1, `rgba(${plume},0)`);
+    ctx.globalAlpha = 0.55 * s.throttle * cloudFade;
+    ctx.fillStyle = g; ctx.fillRect(ex - 16, ey - 16, 32, 32);
+  }
+  ctx.restore();
+  // a faint ghost of the ship's outline, so you can always find yourself
+  ctx.save();
+  ctx.translate(s.x, s.y); ctx.rotate(s.angle + Math.PI / 2); ctx.scale(SHIP_SCALE, SHIP_SCALE);
+  ctx.globalAlpha = 0.12 * cloudFade;
+  drawHull(SHIPS[prefs.ship], 0, 2.1 * px / SHIP_SCALE);
+  ctx.restore();
+  if (cloudFade > 0.2 && !photo && !title) drawTrajectory(true);  // the line, on top of the clouds
+}
+
+// ===== Visitors: a passing star, and comets that break into a string of pearls =====
+// A passing star: now and then (every 5-10 minutes of play) a small wandering star sweeps past the system's
+// edge on a straight line, about a minute from one side to the other, just clear of the outermost orbit. It
+// pulls on everything loose, as a real star would: stardust, comets, rocks, pods and you (the planets and moons
+// keep to their rails), and the dotted line knows it. While it's close, stardust gathers on the edge facing it
+// and streams after it in a tidal tail you can sweep up. Its pull bends paths near the edge clearly (dust 80 in
+// from the edge ends up 130-170 off its course over 20 s) but is far under any moon's surface pull.
+const PASS_SPEED = 24, PASS_LEAD = 30, PASS_GAP = [300, 600], PASS_MASS = 0.1;  // (0.35 flung dust 500+ off course in 20 s; 0.1 bends it 130-170)
+let passing = null, passNext = 0;  // the star while it passes, and when the next may come
+function startPassing(lead = PASS_LEAD) {
+  if (passing) bodies.splice(bodies.indexOf(passing), 1);  // (the lab's setup can run twice on arrival)
+  const outer = Math.max(0, ...allBodies.filter(b => !b.anchor && !b.parent).map(b => b.orbit + b.R));
+  const D = Math.max(outer + 90, ARENA_R - 10), th = rand(0, TAU), dir = pick([-1, 1]);
+  const tx = -Math.sin(th) * dir, ty = Math.cos(th) * dir;           // which way it travels
+  const cx = Math.cos(th) * D, cy = Math.sin(th) * D;                 // where it passes closest
+  const tint = pick(['255,214,150', '255,196,140', '178,214,255', '255,228,172']), mass = PASS_MASS * system.centralMass;
+  passing = {
+    kind: 'sun', passing: true, name: 'a passing star', R: 10, mass, gm: cfg.gravity * mass, softR: 40, barren: true,
+    color: tint.split(',').map(Number), accents: [tint], plants: [], orbit: 0, spin: 0, spinRate: 0,
+    x0: cx - tx * PASS_SPEED * lead, y0: cy - ty * PASS_SPEED * lead, vx: tx * PASS_SPEED, vy: ty * PASS_SPEED, t0: time, life: 2 * lead,
+    px: 0, py: 0, pvx: tx * PASS_SPEED, pvy: ty * PASS_SPEED,
+  };
+  passing.px = passing.x0; passing.py = passing.y0;
+  bodies.push(passing);
+  say('A wandering star passes by the system. Feel its pull', `rgb(${tint})`);
+  voice(CHORDS[0][0] / 2, 0.05, 6, 2); voice(CHORDS[0][2], 0.015, 6, 2.5, 'triangle');
+}
+const passAt = (p, t) => [p.x0 + p.vx * (t - p.t0), p.y0 + p.vy * (t - p.t0)];
+function updatePassing(dt) {
+  const p = passing;
+  if (!p) {
+    if (!passNext) passNext = time + rand(...PASS_GAP);
+    if (!LAB && !warp && time > passNext && time - (system.arrivedAt ?? time) > 40 && !(rogue && rogue.present) && !system.binary) startPassing();
+    return;
+  }
+  [p.px, p.py] = passAt(p, time);
+  p.gm = cfg.gravity * p.mass;
+  // the tidal tail: while it's near, stardust lifts off the edge facing it
+  const r = Math.hypot(p.px, p.py);
+  if (r < ARENA_R + 240 && Math.random() < 6 * dt && motes.length < 260) {
+    const a = Math.atan2(p.py, p.px) + rand(-0.3, 0.3), rr = ARENA_R * rand(0.78, 0.95), x = Math.cos(a) * rr, y = Math.sin(a) * rr;
+    if (clearOfBodies(x, y)) { const [vx, vy] = circular(x, y, 2); motes.push({ x, y, vx, vy, born: time, tw: rand(0, TAU), gold: false, life: rand(30, 40) }); }
+  }
+  // it leaves once its minute is up and it's out of view (corona and all), or very far off; it used to go on a
+  // timer and could blink out on screen. (A warp to a new system drops it anyway.)
+  const zs = scale * cam.zoom, sx = (p.px - cam.x) * zs + W / 2, sy = (p.py - cam.y) * zs + H / 2, m = p.R * 5 * zs + 20;
+  const gone = sx < -m || sx > W + m || sy < -m || sy > H + m;
+  if (time - p.t0 > p.life && (gone || r > ARENA_R * 4)) { bodies.splice(bodies.indexOf(p), 1); passing = null; passNext = time + rand(...PASS_GAP); }
+}
+
+// A comet that hits a world splashes a little of its gold back off the surface: a few golden motes (2 seeds
+// each) floating up where it struck, like its trail beads, fading after a while. Kept small: comets hit a lot.
+function goldSplash(c, b) {
+  if (b.kind === 'sun' || b.kind === 'hole' || b.kind === 'neutron' || b.passing) return;  // (those just take it)
+  const a = Math.atan2(c.y - b.py, c.x - b.px), n = c.piece ? 2 : 7;
+  for (let k = 0; k < n; k++) {
+    const d = a + rand(-1, 1), sp = rand(10, 28), out = b.R + rand(4, 10);
+    motes.push({ x: b.px + Math.cos(d) * out, y: b.py + Math.sin(d) * out, vx: b.pvx + Math.cos(d) * sp, vy: b.pvy + Math.sin(d) * sp, born: time - 0.3, tw: rand(0, TAU), gold: true, hang: true, life: rand(10, 14) });
+  }
+}
+// A string of pearls: a comet that swings very close past a planet or a big moon (inside 1.3 of its
+// radius, without hitting it) is torn apart by the tide into 3 or 4 smaller pieces, each with its own shorter
+// golden trail, drifting slowly apart along the same orbit. The pieces are glowing knots, not rocks: each lays
+// its string of beads and then fades away (four bare cores drifting on looked wrong). Each is worth 2 seeds.
+const PEARL_K = 1.3;  // (judged at the closest pass: 1.45 broke about 1 comet in 4; they're aimed close past the planet)
+function breakComet(i, c, b) {
+  const n = Math.random() < 0.7 ? 3 : 4, v = Math.hypot(c.vx, c.vy) || 1, ux = c.vx / v, uy = c.vy / v;
+  removeAt(comets, i);
+  for (let k = 0; k < n; k++) {
+    const o = k - (n - 1) / 2;
+    comets.push({
+      x: c.x + ux * o * 7, y: c.y + uy * o * 7, vx: c.vx * (1 + o * 0.015) - uy * o * 1.5, vy: c.vy * (1 + o * 0.015) + ux * o * 1.5,
+      age: c.age, travel: 0, dropped: 0, caught: false, fade: 1, leaving: false, spin: rand(0, TAU), piece: true, k: 0.6,
+      shape: Array.from({ length: 6 }, () => rand(0.7, 1.15)),
+    });
+  }
+  burst(c.x, c.y, 24, { vx: c.vx, vy: c.vy, speed: [10, 50], life: [0.5, 1.2], color: '255,225,160' });
+  arpeggio([SCALE[7], SCALE[9], SCALE[11 % SCALE.length], SCALE[9]].map(f => f * 2), 0.07, 0.05);
+  system.pearlSaid = true;  // (no line of text: the sight says it)
+}
+
+// ===== Flyby wake and the great tree =====
+// Flyby wake: skim low and fast over a garden and its plants lean away in your wake, then spring back with a
+// little wobble, a ripple that follows you round the world. A garden in full bloom (and a great tree) also
+// sheds a few motes of pollen behind you, worth a seed each, floating up off the plants; each garden only has
+// a dozen to give, refilling slowly, so it rewards a pass rather than circling forever.
+const WAKE_ALT = 34, WAKE_SPEED = 40, WAKE_LIFE = 2.5, POLLEN_MAX = 12, POLLEN_REFILL = 5;
+function updateWake(dt) {
+  const s = ship;
+  for (const b of gardens) {
+    if (b.wake && b.wake.length && time - b.wake[b.wake.length - 1].t > WAKE_LIFE) b.wake = null;
+    b.pollenStock = Math.min(POLLEN_MAX, (b.pollenStock ?? POLLEN_MAX) + dt / POLLEN_REFILL);
+    if (s.landed || warp || (!b.plants.length && !b.tree)) continue;
+    const dx = s.x - b.px, dy = s.y - b.py, d = Math.hypot(dx, dy) || 1, alt = d - b.R;
+    if (alt > WAKE_ALT || alt < 1) continue;
+    const rvx = s.vx - b.pvx, rvy = s.vy - b.pvy, tang = (rvy * dx - rvx * dy) / d - b.spinRate * d;  // along the ground, as it turns
+    if (Math.abs(tang) < WAKE_SPEED) continue;
+    const w = b.wake || (b.wake = []), a = Math.atan2(dy, dx) - b.spin;
+    if (!w.length || time - w[w.length - 1].t > 1 / 30) {
+      if (!w.length || time - w[w.length - 1].t > 0.6) {  // a new pass: a soft swish
+        thud(0.035, 2600, 0.5, 800);
+      }
+      w.push({ a, t: time, dir: Math.sign(tang), k: clamp((Math.abs(tang) - WAKE_SPEED) / 60 + 0.5, 0.5, 1) * (1 - alt / WAKE_ALT * 0.5) });
+      if (w.length > 90) w.shift();
+    }
+    // pollen, from just behind you
+    if ((b.bloomed || b.tree) && b.pollenStock >= 1 && Math.random() < 7 * dt) {
+      const back = a - Math.sign(tang) * rand(0.05, 0.2) * 30 / b.R, wa = back + b.spin;
+      const nearTree = b.tree && Math.abs(angleDiff(b.tree.a, a)) < 0.35;
+      const up = nearTree ? treeHeight(b, b.tree) * rand(0.6, 1) : rand(6, 14);
+      const ox = b.px + Math.cos(nearTree ? b.tree.a + b.spin : wa) * (b.R + up), oy = b.py + Math.sin(nearTree ? b.tree.a + b.spin : wa) * (b.R + up);
+      const [svx, svy] = surfaceVel(b, wa);
+      motes.push({ x: ox, y: oy, vx: svx + Math.cos(wa) * rand(6, 14), vy: svy + Math.sin(wa) * rand(6, 14), born: time - 0.5, tw: rand(0, TAU), gold: false, hang: true, life: rand(10, 14) });
+      b.pollenStock--;
+    }
+  }
+}
+// how far a plant at local angle pa leans in the wake right now (radians; 0 with no wake)
+function wakeBend(b, pa) {
+  const w = b.wake;
+  if (!w) return 0;
+  const reach = 0.08 + 7 / b.R;
+  for (let i = w.length - 1; i >= 0; i--) {
+    const e = w[i];
+    if (Math.abs(angleDiff(pa, e.a)) > reach) continue;
+    const age = time - e.t;
+    if (age > WAKE_LIFE) return 0;
+    return e.dir * 0.6 * e.k * Math.exp(-age * 1.6) * Math.cos(age * 6.5);
+  }
+  return 0;
+}
+
+// The great tree: land on a garden already in full bloom with a big hoard (over 500 seeds) and, after a moment,
+// (one you've just brought into bloom by planting it doesn't count: take off and land again if you want a tree)
+// one tree takes root beside you and grows while you stay, a seed every 0.12 s, up to 100 seeds. It only ever
+// spends what's above 500, so a hoard never drops below that, and a world has one tree at most (land on it again
+// to finish one you left). Its height is capped by the size of its world (it would look silly towering over a
+// little moon), its crown fills out with blossom as it grows, and it gives pollen to a flyby like the flowers.
+const TREE_MIN = 500, TREE_MAX = 100, TREE_RATE = 0.12;
+const treeHeight = (b, t) => Math.min(46, b.R * 0.85) * Math.sqrt(clamp(t.n / TREE_MAX, 0, 1));
+function growTree(b, s, dt) {
+  let t = b.tree;
+  if (t && t.n >= TREE_MAX) return;
+  if (!t) {
+    const [c0, c1, c2] = b.color, side = Math.random() < 0.5 ? -1 : 1;
+    t = b.tree = { a: s.landAngle - b.spin + side * 16 / b.R, n: 0, tip: pick(b.accents) || `${c0},${c1},${c2}`, flip: side, sway: rand(0, TAU) };
+    s.treeTimer = 0.4;
+    say(`A great tree takes root on ${b.name}`, bodyColor(b));
+    voice(CHORDS[0][0] / 2, 0.04, 3, 0.4);
+  }
+  s.treeTimer = (s.treeTimer ?? 0) - dt;
+  if (s.treeTimer > 0) return;
+  s.treeTimer = TREE_RATE;
+  s.seeds--; t.n++;
+  const wa = t.a + b.spin, H = treeHeight(b, t);
+  if (t.n % 10 === 0) voice(SCALE[(t.n / 10 + 2) % SCALE.length] * 2, 0.03, 1.4, 0.01, 'triangle');
+  burst(b.px + Math.cos(wa) * (b.R + H * 0.8), b.py + Math.sin(wa) * (b.R + H * 0.8), 2, { vx: b.pvx, vy: b.pvy, speed: [5, 18], life: [0.3, 0.7], color: t.tip });
+  if (t.n >= TREE_MAX) {
+    say(`The great tree on ${b.name} is fully grown`, bodyColor(b));
+    waves.push({ body: b, off: [Math.cos(wa) * (b.R + H * 0.7), Math.sin(wa) * (b.R + H * 0.7)], t0: time, dur: 2, r0: 4, r1: 60, color: t.tip, w: 1.6 });
+    arpeggio(SCALE.slice(2, 9), 0.08, 0.07);
+  }
+}
+// line art like the plants: a trunk with a gentle lean, branching three times (fewer while it's young), and a
+// crown of blossom at the twig tips, more of it as it grows. Drawn into the garden's batched path.
+function drawTree(b, t, bud, hs) {
+  const H = treeHeight(b, t) * Math.min(hs, 1.25);
+  if (H < 1.5) return;
+  const wa = t.a + b.spin, th = wa + Math.PI / 2 + Math.sin(time * 0.6 + t.sway) * 0.03 + wakeBend(b, t.a) * 0.25, f = t.flip;
+  pc = Math.cos(th); ps = Math.sin(th);
+  pox = Math.cos(wa) * b.R; poy = Math.sin(wa) * b.R;
+  const line = (x0, y0, x1, y1) => { ctx_.moveTo(PX(x0, y0), PY(x0, y0)); ctx_.lineTo(PX(x1, y1), PY(x1, y1)); };
+  const own = b.color.join(','), depth = t.n < 30 ? 1 : t.n < 65 ? 2 : 3, blossom = clamp(t.n / TREE_MAX, 0.2, 1);
+  // the trunk: two lines that taper, leaning a little
+  const top = [f * H * 0.06, -H * 0.55], w0 = H * 0.06, w1 = H * 0.03;
+  line(-w0, 0, top[0] - w1, top[1]); line(w0, 0, top[0] + w1, top[1]);
+  let tips = 0;
+  const branch = (x, y, ang, len, d) => {
+    const x2 = x + Math.sin(ang) * len, y2 = y - Math.cos(ang) * len;
+    line(x, y, x2, y2);
+    if (d <= 1) {
+      tips++;
+      bud(t, x2, y2, (1.5 + 0.8 * blossom) * (0.8 + 0.2 * Math.sin(t.sway * 7 + tips)), tips % 3 ? t.tip : own);
+      return;
+    }
+    const spread = 0.42 + 0.06 * Math.sin(t.sway * 3 + d);
+    branch(x2, y2, ang - spread, len * 0.72, d - 1);
+    branch(x2, y2, ang + spread * 0.9, len * 0.7, d - 1);
+    if (d === 3) branch(x2, y2, ang + 0.05 * f, len * 0.62, d - 1);
+  };
+  branch(top[0], top[1], -0.55 + 0.1 * f, H * 0.3, depth + 1);
+  branch(top[0], top[1], 0.55 + 0.1 * f, H * 0.3, depth + 1);
+  branch(top[0], top[1], 0.05 * f, H * 0.36, depth + 1);
+}
+
+// ===== Sky and sound: eclipses, stretched time, the pulsar's beat, Lagrange pools =====
+// Eclipses. With one far sun, every moon throws a shadow away from the light; where that shadow falls across a
+// world, a soft dark spot slides over its face (always drawn: it's real). Now and then, when a moon passes
+// right in front of the sun for a world you're at (close by or standing on it), it's an eclipse: the system
+// dims, the music hushes, and fireflies come out of that world's plants. At most one every couple of minutes.
+// (Not round a binary, where the light comes from the middle.)
+const ECLIPSE_GAP = 120;   // seconds after one eclipse before the next hush
+let eclipse = 0, eclipseOn = null, eclipseNext = 0, shadowsNow = [];  // depth 0..1, { world, moon }, the next time, [world, moon, cover]
+function updateEclipse(dt) {
+  shadowsNow = [];
+  let want = 0;
+  if (!system.binary) {
+    const ux = -Math.cos(system.sunAngle), uy = -Math.sin(system.sunAngle), s = ship;
+    for (const w of bodies) {
+      if (w.kind === 'sun' || w.kind === 'hole' || w.kind === 'neutron' || w.anchor) continue;
+      for (const m of bodies) {
+        if (m === w || m.R >= w.R || m.anchor || m.kind === 'sun' || m.kind === 'hole' || m.kind === 'neutron') continue;
+        const dx = w.px - m.px, dy = w.py - m.py, along = dx * ux + dy * uy;
+        if (along <= 0) continue;
+        const lat = Math.abs(dx * uy - dy * ux);
+        if (lat >= w.R + m.R) continue;
+        const cover = clamp((w.R + m.R - lat) / (2 * m.R), 0, 1);
+        shadowsNow.push([w, m, cover]);
+        const near = s.landed === w || Math.hypot(s.x - w.px, s.y - w.py) < w.R + 220;
+        if (near && gardens.includes(w) && !warp && (eclipseOn ? eclipseOn.world === w && eclipseOn.moon === m : time > eclipseNext && cover > 0.5)) {
+          if (!eclipseOn) {
+            eclipseOn = { world: w, moon: m };
+            voice(CHORDS[0][0] / 2, 0.04, 6, 2.5);  // a low hum as the light goes
+          }
+          want = Math.max(want, smooth(clamp(cover / 0.6, 0, 1)));
+        }
+      }
+    }
+  }
+  eclipse += (want - eclipse) * (1 - Math.exp(-(want > eclipse ? 1.2 : 0.35) * dt));  // the light comes back slowly
+  if (eclipseOn && !want && eclipse < 0.02) { eclipseOn = null; eclipse = 0; eclipseNext = time + ECLIPSE_GAP; }
+  // in the dark, fireflies rise from the world's plants
+  if (eclipseOn && eclipse > 0.3 && Math.random() < 5 * dt && fireflies.length < MAX_FIREFLIES) {
+    const b = eclipseOn.world;
+    if (b.plants.length) {
+      const pl = pick(b.plants), life = rand(7, 12);
+      fireflies.push({ body: b, x: b.px + Math.cos(pl.a + b.spin) * (b.R + 3), y: b.py + Math.sin(pl.a + b.spin) * (b.R + 3), vx: 0, vy: 0, life, max: life, follow: false, ph: rand(0, TAU), color: pick(b.accents) });
+    }
+  }
+}
+// each shadow on a world: a soft dark spot where the shadow's axis meets it, clipped to the world's face
+function drawEclipseShadows() {
+  if (!shadowsNow.length) return;
+  const ux = -Math.cos(system.sunAngle), uy = -Math.sin(system.sunAngle);
+  for (const [w, m, cover] of shadowsNow) {
+    const dx = w.px - m.px, dy = w.py - m.py, along = dx * ux + dy * uy;
+    const qx = m.px + ux * along - w.px, qy = m.py + uy * along - w.py, ql = Math.hypot(qx, qy);
+    const k = ql > w.R * 0.85 ? w.R * 0.85 / ql : 1, cx = w.px + qx * k, cy = w.py + qy * k, r = m.R * 1.6;
+    ctx.save();
+    ctx.beginPath(); ctx.arc(w.px, w.py, w.R, 0, TAU); ctx.clip();
+    const g = ctx.createRadialGradient(cx, cy, 0, cx, cy, r);
+    g.addColorStop(0, `rgba(2,3,10,${0.5 * cover})`); g.addColorStop(0.6, `rgba(2,3,10,${0.3 * cover})`); g.addColorStop(1, 'rgba(2,3,10,0)');
+    ctx.fillStyle = g;
+    ctx.fillRect(cx - r, cy - r, 2 * r, 2 * r);
+    ctx.restore();
+  }
+}
+// the whole sky dims a little in an eclipse (stardust, comets, fireflies and the ship are drawn after it, so they glow)
+function drawEclipseDim() {
+  if (eclipse < 0.01) return;
+  ctx.save();
+  ctx.setTransform(1, 0, 0, 1, 0, 0);
+  ctx.fillStyle = `rgba(2,3,12,${0.4 * eclipse})`;
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+  ctx.restore();
+}
+
+// Stretched time near a black hole: the closer you are, the slower the world feels. Every note comes out lower
+// (the music, the chimes and the engine drop up to about a fifth), and sparks, petals and exhaust drift and fade
+// in slow motion. Only felt: the physics, the dotted line and your controls are untouched.
+let stretch = 0;  // 0 far away .. 1 close in
+const pitchK = () => 1 - 0.3 * stretch;
+function updateStretch(dt) {
+  const h = system.hole;
+  let want = 0;
+  if (h && !warp) want = smooth(clamp((h.R * 12 - Math.hypot(ship.x - h.px, ship.y - h.py)) / (h.R * 7), 0, 1));  // from 12 radii out, full by 5
+  stretch += (want - stretch) * (1 - Math.exp(-1.5 * dt));
+  if (stretch > 0.5 && !system.stretchSaid) { system.stretchSaid = true; say('So close to the black hole, time itself stretches', `rgb(${system.dustHalo})`); }
+}
+
+// The pulsar's beat: each time one of a neutron star's beams sweeps across you, a note rings out (stepping
+// through the system's chords), so a slingshot round it is played in rhythm, with a glint off the ship.
+const NEUTRON_SPIN = 1.1;  // the beams' turn, radians a second: a beam passes any spot about every 3 s
+let pulsarD = null, pulsarNo = 0;
+function updatePulsar() {
+  const n = system.archetype === 'neutron' ? allBodies.find(b => b.kind === 'neutron') : null;
+  if (!n) { pulsarD = null; return; }
+  const s = ship, a = Math.atan2(s.y - n.py, s.x - n.px), beam = time * NEUTRON_SPIN + (n.start || 0);
+  const d = ((beam - a) % Math.PI + Math.PI) % Math.PI;  // two beams, so every half turn
+  if (pulsarD !== null && d < pulsarD - 1 && !warp && Math.hypot(s.x - n.px, s.y - n.py) < 300) {
+    const ch = CHORDS[Math.floor(pulsarNo / 4) % CHORDS.length];
+    voice(ch[pulsarNo % ch.length] * 2, 0.035, 1.6, 0.005, 'triangle');
+    pulsarNo++;
+    burst(s.x, s.y, 4, { vx: s.vx, vy: s.vy, speed: [10, 30], life: [0.2, 0.5], color: n.color.join(',') });
+  }
+  pulsarD = d;
+}
+
+// Lagrange pools: in some systems faint stardust gathers 60° ahead of and behind the biggest moon, where the
+// planet's pull and the moon's balance (L4 and L5). Nothing holds it there but real gravity: it drifts in slow
+// loops round those points (the other moons' tugs slowly pull it off along the orbit), thins out within half
+// a minute, and more gathers every 15 s.
+let poolHost = null, poolTimer = 0;
+// L4 and L5 only hold anything round a moon light enough next to its planet (under about 4% of the pair's
+// mass, as for real); the biggest such moon gets the pools
+function poolMoon() {
+  const home = bodies.find(b => !b.orbit && !b.anchor);
+  if (!home) return null;
+  const c = bodies.filter(b => !b.parent && b.orbit > 0 && b.R >= 14 && !b.rogue && !b.made && !b.anchor && b.kind !== 'gas' && b.mass / (home.mass + b.mass) < 0.035);
+  return c.length ? c.sort((a, b) => b.R - a.R)[0] : null;
+}
+function setupPools() {
+  poolHost = null;
+  if (LAB || system.binary || ['hole', 'twin', 'neutron', 'gas'].includes(system.archetype) || Math.random() > 0.4) return;
+  poolHost = poolMoon();
+  if (poolHost) poolTimer = rand(2, 6);
+}
+function updatePools(dt) {
+  const h = poolHost;
+  if (!h || warp) return;
+  if ((poolTimer -= dt) <= 0) {
+    poolTimer = 15;
+    const r = Math.hypot(h.px, h.py), ha = Math.atan2(h.py, h.px), dir = h.dir || 1;
+    for (const side of [1, -1]) {
+      if (motes.filter(m => m.pool === side).length >= 8) continue;
+      const a = ha + side * Math.PI / 3;
+      for (let i = 0; i < 9; i++) {
+        const x = Math.cos(a) * r + rand(-8, 8), y = Math.sin(a) * r + rand(-8, 8), [vx, vy] = circular(x, y, 0.4);
+        motes.push({ x, y, vx: vx * dir, vy: vy * dir, born: time, tw: rand(0, TAU), gold: false, pool: side, life: rand(28, 38) });
+      }
+    }
+  }
 }
 
 // ===== Solar gusts =====
@@ -2450,11 +2965,12 @@ function spillSeeds(n, nx, ny) {
   s.seeds -= n;
 }
 
-// Plant kinds: 0 sprout, 1 grass tuft, 2 forked, 3 curl, 4 flower. Flowers get likelier as the garden fills.
-// 5 is a rare bamboo clump (an easter egg, see plantSeed).
-const BAMBOO = 5;
+// Plant kinds: 0 sprout, 1 grass tuft, 2 forked, 3 curl, 4 flower, 7 dandelion (a puff of seeds), 8 fern frond.
+// Flowers and dandelions get likelier as the garden fills. 5 is a rare bamboo clump (an easter egg, see
+// plantSeed); 6 is kept for the great tree, which isn't a plant in the list (see Great tree).
+const BAMBOO = 5, DANDELION = 7, FERN = 8;
 function pickKind(bloom) {
-  const w = [3, 2.5 - bloom * 1.5, 1 + bloom, 1, 0.2 + bloom * 1.6];
+  const w = [3, 2.5 - bloom * 1.5, 1 + bloom, 1, 0.2 + bloom * 1.6, 0, 0, 0.15 + bloom * 0.45, 0.55];
   let r = Math.random() * w.reduce((a, b) => a + b, 0);
   for (let i = 0; i < w.length; i++) { r -= w[i]; if (r <= 0) return i; }
   return 0;
@@ -2611,7 +3127,7 @@ function updateComets(dt) {
     // (Stardust that kept orbiting bunched up into a cloud at the far end of the orbit.)
     c.travel += Math.hypot(c.vx, c.vy) * dt;
     c.spin += dt * 0.6;
-    if (c.travel >= 8 && c.dropped < 110 && !c.leaving) {
+    if (c.travel >= 8 && c.dropped < (c.piece ? 40 : 110) && !c.leaving) {
       c.travel = 0;
       c.dropped++;
       const v = Math.hypot(c.vx, c.vy) || 1, side = rand(-4, 4);
@@ -2622,17 +3138,31 @@ function updateComets(dt) {
     }
     if (!c.caught && Math.hypot(s.x - c.x, s.y - c.y) < 18) {
       c.caught = true;
-      s.seeds += 5;
+      s.seeds += c.piece ? 2 : 5;
       burst(c.x, c.y, 30, { vx: c.vx, vy: c.vy, speed: [30, 120], life: [0.4, 1], color: '255,230,160' });
       arpeggio([SCALE[5], SCALE[7], SCALE[9], SCALE[10]], 0.06, 0.08);
-      say('You caught the comet! +5 seeds', '#ffe7a0');
+      say(c.piece ? 'You caught a pearl! +2 seeds' : 'You caught the comet! +5 seeds', '#ffe7a0');
     }
     // once it has swung past the planet and climbed back out, it slowly fades away
     if (c.age > 10 && r > 420) c.leaving = true;
     if (c.leaving) c.fade -= dt * 0.35;
-    const hit = bodies.some(b => Math.hypot(c.x - b.px, c.y - b.py) < b.R);
-    if (hit) burst(c.x, c.y, 40, { speed: [20, 100], life: [0.5, 1.2], color: '255,220,150' });
-    if (hit || c.fade <= 0) removeAt(comets, i);
+    if (c.piece && c.dropped >= 40) c.fade -= dt * 0.5;  // a pearl's string is laid: it fades out
+    const hit = bodies.find(b => Math.hypot(c.x - b.px, c.y - b.py) < b.R);
+    if (hit) {
+      burst(c.x, c.y, c.piece ? 16 : 40, { speed: [20, 100], life: [0.5, 1.2], color: '255,220,150' });
+      goldSplash(c, hit);
+    }
+    if (hit || c.fade <= 0) { removeAt(comets, i); continue; }
+    // grazing a planet or a big moon tears a whole comet into a string of pearls: judged at its closest pass (when
+    // it stops closing in), so one on its way to a crash doesn't count (it hits first: comets crash a lot)
+    if (!c.piece && c.age > 2 && !c.leaving) {
+      const o = bodies.find(o => o.R >= 22 && !o.anchor && !o.passing && o.kind !== 'sun' && o.kind !== 'hole' && o.kind !== 'neutron' && Math.hypot(c.x - o.px, c.y - o.py) < o.R * 3);
+      if (o) {
+        const rx = c.x - o.px, ry = c.y - o.py, dot = rx * (c.vx - o.pvx) + ry * (c.vy - o.pvy), d = Math.hypot(rx, ry);
+        if (c.near === o && c.closing < 0 && dot >= 0 && d < o.R * PEARL_K) { breakComet(i, c, o); continue; }
+        c.near = o; c.closing = dot;
+      } else c.near = null;
+    }
   }
 }
 
@@ -2745,6 +3275,7 @@ const LOB_TILT = 110 * Math.PI / 180;                // throws go up to this far
 // A throw is a pod: a tenth of what you carry (1 to 50 seeds) flies as one, so the dotted line stays true, and
 // bursts where it lands, sowing a stripe of ground as wide as its load. Gardens need tens to hundreds of seeds.
 const LOB_SHARE = 0.1, LOB_LOAD_MAX = 50;
+const LOB_PAUSE = 2;  // seconds planting waits after a throw (it used to stop for the rest of the landing)
 const lobLoad = () => Math.min(ship.seeds, clamp(Math.round(ship.seeds * LOB_SHARE), 1, LOB_LOAD_MAX));
 const SEED_RGB = '216,246,255';
 
@@ -2774,7 +3305,9 @@ function checkSeedMilestone() {
     500: 'Over 500 seeds aboard. Wow! Land gently, now',
     1000: 'Over 1,000 seeds! A whole meadow in the hold. Careful!',
     1500: 'Over 1,500 seeds. The ship is mostly seeds by now',
-    2000: 'Over 2,000 seeds! Somewhere a gardener weeps with joy',
+    2000: 'Over 2,000 seeds. A whole spring\'s worth, riding with you',
+    2500: 'Over 2,500 seeds. Enough to green a planet. Or ten',
+    3000: 'Over 3,000 seeds. Even the comets are jealous',
   };
   const tint = seedTint(s.seeds);
   say(lines[seedMark] || `Over ${n} seeds aboard. Wow! Careful!`, `rgb(${tint})`);
@@ -2850,7 +3383,7 @@ function throwSeed() {
   const o = lobLaunch(l), n = lobLoad();
   lobbed.push({ ...o, n, born: time, fade: 0, on: null });
   s.seeds -= n; lobAt = time;
-  s.holdSeeds = true;  // the rest of this landing's seeds are kept for throwing
+  s.lobPause = time + LOB_PAUSE;  // planting waits a moment (for another throw), then carries on
   thud(0.05, 2200, 0.4, 500);  // a soft whoosh
   voice(SCALE[9] * 2, 0.022, 0.8, 0.01, 'triangle');
   burst(o.x, o.y, 5, { vx: s.vx, vy: s.vy, dir: Math.atan2(o.vy - s.vy, o.vx - s.vx), spread: 0.8, speed: [10, 30], life: [0.2, 0.5], color: SEED_RGB });
@@ -3504,7 +4037,7 @@ function makeMoon(i) {
   const theme = THEMES.find(t => t.name === system.theme) || THEMES[0];
   const wearing = c => bodies.filter(b => b.color && b.color.join() === c.join()).length;
   const base = theme.colors.slice().sort((a, b) => wearing(a) - wearing(b))[0];
-  const color = wearing(base) ? base.map(v => Math.round(mix(v, 255, 0.45))) : base.slice();
+  const color = wearing(base) ? base.map(v => Math.round(mix(v, 255, 0.3))) : base.slice();
   const angle = Math.atan2(ry, rx);
   const b = {
     name, R, mass: moonMass(R), orbit: d, start: angle, angle, dir, parent: h, made: true, madeAt: time,
@@ -3971,6 +4504,7 @@ function updateExit(dt) {
 }
 
 function updateParticles(dt) {
+  dt *= 1 - 0.6 * stretch;  // slow motion near a black hole
   for (let i = particles.length - 1; i >= 0; i--) {
     const p = particles[i];
     p.life -= dt;
@@ -4041,6 +4575,15 @@ function predict(o = ship, seed = false) {
       predOy[k] = ox * predS[k] + predOy[k] * predC[k];
     }
     let ax = 0, ay = 0, pax = 0, pay = 0, dense = -1;
+    if (passing) {  // a passing star flies a straight line on the clock
+      const [sx, sy] = passAt(passing, time + i * dt), ddx = sx - x, ddy = sy - y;
+      const r2 = Math.max(ddx * ddx + ddy * ddy, passing.softR * passing.softR), r = Math.sqrt(r2), a = passing.gm / r2;
+      ax += ddx / r * a; ay += ddy / r * a;
+      if (pod) {
+        const qdx = sx - qx, qdy = sy - qy, q2 = Math.max(qdx * qdx + qdy * qdy, passing.softR * passing.softR), q = Math.sqrt(q2), qa = passing.gm / q2;
+        pax += qdx / q * qa; pay += qdy / q * qa;
+      }
+    }
     const rgOn = rg && rst.s < rg.path.len;
     if (rgOn) {
       rogueAt(rg, rst.s);
@@ -4463,10 +5006,11 @@ function screenToWorld(sx, sy) {
 // day and night swing round each world as it orbits).
 const lightAt = (x, y) => system.binary ? Math.atan2(-y, -x) : system.sunAngle;
 function bodyColor(b, alpha = 1) {
-  // softened when bare, warming to the body's full colour as the garden fills
-  const t = 0.5 + 0.5 * bloomOf(b);
-  const [r, g, bl] = b.color;
-  return `rgba(${Math.round(mix(110, r, t))},${Math.round(mix(120, g, t))},${Math.round(mix(145, bl, t))},${alpha})`;
+  // softened when bare (paler and fainter), warming to the body's full colour as the garden fills. (It used to
+  // blend toward slate grey, which turned yellow khaki, red mauve and green sage: the "puke" the player saw.)
+  const bl0 = bloomOf(b), w = 0.35 * (1 - bl0), [r, g, bl] = b.color;
+  // (asked for at full strength, as for the HUD's names and messages, it stays fully opaque)
+  return `rgba(${Math.round(mix(r, 230, w))},${Math.round(mix(g, 232, w))},${Math.round(mix(bl, 245, w))},${alpha === 1 ? 1 : alpha * (0.7 + 0.3 * bl0)})`;
 }
 
 function render() {
@@ -4493,7 +5037,9 @@ function render() {
   drawTraces();
   if (!photo) drawMoonHints();
   for (const b of bodies) drawBody(b);
+  drawEclipseShadows();
   drawWaves();
+  drawEclipseDim();
   drawPollenHints();
   drawRocks();
   drawPods();
@@ -4504,6 +5050,7 @@ function render() {
   drawParticles();
   drawLob();
   drawShip();
+  drawCloudCover();
   drawBrakeMarker();
   drawExitPointer();
   if (!photo) { drawLandingReadout(); drawChainPopup(); }
@@ -4903,7 +5450,7 @@ function drawGarden(b, ctx) {
   for (const p of b.plants) {
     const wa = p.a + b.spin;  // where on the body the plant is right now
     day = smooth(clamp((Math.cos(wa - sun) + 0.25) / 0.5, 0, 1));
-    const h = p.h * p.grow * hs, f = p.flip, th = wa + Math.PI / 2 + Math.sin(time * 1.3 + p.sway) * 0.12;
+    const h = p.h * p.grow * hs, f = p.flip, th = wa + Math.PI / 2 + Math.sin(time * 1.3 + p.sway) * 0.12 + wakeBend(b, p.a);
     pc = Math.cos(th); ps = Math.sin(th);
     const base = b.poly ? polyRadius(b, p.a) : b.R;
     pox = Math.cos(wa) * base; poy = Math.sin(wa) * base;
@@ -4939,12 +5486,38 @@ function drawGarden(b, ctx) {
       case BAMBOO:
         drawBamboo(h, f);
         break;
+      case DANDELION: {  // a slender stem, a little bent, and a round puff of seeds on fine threads
+        const tx = h * 0.12 * f;
+        ctx.moveTo(pox, poy); ctx.quadraticCurveTo(PX(h * 0.18 * f, -h * 0.5), PY(h * 0.18 * f, -h * 0.5), PX(tx, -h), PY(tx, -h));
+        if (showBud) {
+          const r = 2.6 * p.grow;
+          for (let k = 0; k < 9; k++) {
+            const a = k / 9 * TAU + p.sway;
+            ctx.moveTo(PX(tx, -h), PY(tx, -h)); ctx.lineTo(PX(tx + Math.cos(a) * r * 0.8, -h + Math.sin(a) * r * 0.8), PY(tx + Math.cos(a) * r * 0.8, -h + Math.sin(a) * r * 0.8));
+            bud(p, tx + Math.cos(a) * r, -h + Math.sin(a) * r, 0.5 * p.grow, '236,242,255');
+          }
+        }
+        break;
+      }
+      case FERN: {  // an arching frond with leaflets in pairs, smaller toward its curled tip
+        const P0 = [0, 0], P1 = [h * 0.15 * f, -h * 1.05], P2 = [h * 0.55 * f, -h * 0.75];
+        const at = t => [(1 - t) ** 2 * P0[0] + 2 * (1 - t) * t * P1[0] + t * t * P2[0], (1 - t) ** 2 * P0[1] + 2 * (1 - t) * t * P1[1] + t * t * P2[1]];
+        ctx.moveTo(pox, poy); ctx.quadraticCurveTo(PX(...P1), PY(...P1), PX(...P2), PY(...P2));
+        for (let k = 1; k <= 5; k++) {
+          const t = 0.18 + k * 0.14, [x, y] = at(t), [x2, y2] = at(t + 0.02), dx = x2 - x, dy = y2 - y, d = Math.hypot(dx, dy) || 1;
+          const nx = -dy / d, ny = dx / d, L = h * 0.2 * (1.1 - t);
+          ctx.moveTo(PX(x, y), PY(x, y)); ctx.lineTo(PX(x + (nx + dx / d * 0.6) * L, y + (ny + dy / d * 0.6) * L), PY(x + (nx + dx / d * 0.6) * L, y + (ny + dy / d * 0.6) * L));
+          ctx.moveTo(PX(x, y), PY(x, y)); ctx.lineTo(PX(x + (-nx + dx / d * 0.6) * L, y + (-ny + dy / d * 0.6) * L), PY(x + (-nx + dx / d * 0.6) * L, y + (-ny + dy / d * 0.6) * L));
+        }
+        break;
+      }
       default:  // sprout
         ctx.moveTo(pox, poy); ctx.lineTo(PX(0, -h), PY(0, -h));
         // about half the sprouts carry a full bud, the rest a tiny tip
         if (showBud) bud(p, 0, -h, (p.sway % 1 < 0.5 ? 1.3 : 0.6) * p.grow);
     }
   }
+  if (b.tree) drawTree(b, b.tree, bud, hs);
   if (b.poly) {  // crystal shards are filled, translucent
     ctx.fillStyle = `rgba(${c0},${c1},${c2},0.3)`;
     ctx.fill();
@@ -5033,23 +5606,36 @@ function polyRadius(b, a) {
 // Each garden is drawn into its own small offscreen canvas and only redrawn every few frames
 // (the sway is slow enough that nobody can tell), or right away when the zoom or plant count changes.
 let frameNo = 0;
+// The canvas is made a quarter bigger than needed and kept while the zoom stays within reach of that, rather
+// than made anew whenever its size changes by a pixel (every frame of a zoom, for every garden): a stream of new
+// canvases, each drawn and shown in the same frame, is the likely source of brief flashes of banded, checkered
+// garbage some laptops showed.
 function drawGardenCached(b) {
-  const z = scale * cam.zoom * dpr, ext = b.R + (b.plants.some(p => p.kind === BAMBOO) ? 44 : 24) * gardenBoost(), size = Math.ceil(ext * 2 * z);
-  if (size < 2) return;
+  const room = Math.max(b.plants.some(p => p.kind === BAMBOO) ? 44 : 24, b.tree ? treeHeight(b, b.tree) + 14 : 0);
+  const z = scale * cam.zoom * dpr, ext = b.R + room * gardenBoost(), need = Math.ceil(ext * 2 * z);
+  if (need < 2) return;
+  // off screen: nothing to draw (and its cache isn't redrawn)
+  const zs = scale * cam.zoom, bx = (b.px - cam.x) * zs + W / 2, by = (b.py - cam.y) * zs + H / 2, er = ext * zs;
+  if (bx < -er || bx > W + er || by < -er || by > H + er) return;
+  // zoomed right in, the cache would be a huge texture (thousands of pixels a side, one per garden): draw it
+  // straight onto the screen instead
+  if (need > 1400) { b.gardenCache = null; drawGarden(b, ctx); return; }
   let gc = b.gardenCache;
-  if (!gc || gc.canvas.width !== size) {
+  if (!gc || gc.canvas.width < need || gc.canvas.width > need * 1.7) {
     const c = document.createElement('canvas');
-    c.width = c.height = size;
+    c.width = c.height = Math.ceil(need * 1.25);
     gc = b.gardenCache = { canvas: c, g: c.getContext('2d'), frame: -99 };
   }
-  if (frameNo - gc.frame >= 3 || gc.z !== z || gc.count !== b.plants.length) {
+  const size = gc.canvas.width, key = b.plants.length + (b.tree ? b.tree.n * 1000 : 0);
+  if (frameNo - gc.frame >= 3 || gc.z !== z || gc.count !== key) {
     gc.g.setTransform(1, 0, 0, 1, 0, 0);
     gc.g.clearRect(0, 0, size, size);
     gc.g.setTransform(z, 0, 0, z, size / 2, size / 2);
     drawGarden(b, gc.g);
-    gc.frame = frameNo; gc.z = z; gc.count = b.plants.length;
+    gc.frame = frameNo; gc.z = z; gc.count = key;
   }
-  ctx.drawImage(gc.canvas, -ext, -ext, 2 * ext, 2 * ext);
+  const E = size / (2 * z);  // the world distance the whole canvas covers, centre to edge
+  ctx.drawImage(gc.canvas, -E, -E, 2 * E, 2 * E);
 }
 
 // Bodies are lit spheres: a colour fill brightest toward the sun and a rim that's a bright crescent on the
@@ -5092,10 +5678,11 @@ function drawBody(b) {
   }
   ctx.fillStyle = '#070a14';
   ctx.beginPath(); ctx.arc(0, 0, R, 0, TAU); ctx.fill();
-  // the sunlit side is slightly whitened so a dim fill reads warm rather than muddy (dim yellow goes olive)
-  const lit = 0.6 * (0.3 + 0.7 * bloom) * dim, [cr, cg, cb] = b.color;
+  // the sunlit side: a darker, saturated tint of the body's colour (a strongly whitened colour at low alpha over
+  // the dark came out grey, and dim yellow olive)
+  const lit = 0.45 * (0.3 + 0.7 * bloom) * dim, [cr, cg, cb] = b.color;
   const fill = ctx.createRadialGradient(sx * R * 0.45, sy * R * 0.45, 0, sx * R * 0.2, sy * R * 0.2, R * 1.3);
-  fill.addColorStop(0, `rgba(${Math.round(mix(cr, 255, 0.4))},${Math.round(mix(cg, 255, 0.4))},${Math.round(mix(cb, 255, 0.4))},${lit})`);
+  fill.addColorStop(0, `rgba(${Math.round(mix(cr, 255, 0.15))},${Math.round(mix(cg, 255, 0.15))},${Math.round(mix(cb, 255, 0.15))},${lit})`);
   fill.addColorStop(1, bodyColor(b, 0.06));
   ctx.fillStyle = fill;
   ctx.fill();
@@ -5227,8 +5814,8 @@ function drawNeutron(b) {
   ctx.beginPath(); ctx.arc(0, 0, R * 2.6, 0, TAU); ctx.stroke();
   ctx.strokeStyle = `rgba(${c},0.08)`;
   ctx.beginPath(); ctx.arc(0, 0, R * 3.3, 0, TAU); ctx.stroke();
-  // the beams, from its two poles, sweeping round about once every two seconds
-  ctx.rotate(time * 3.1 + (b.start || 0));
+  // the beams, from its two poles, sweeping round slowly (a lighthouse, not a strobe; see the pulsar's beat)
+  ctx.rotate(time * NEUTRON_SPIN + (b.start || 0));
   for (let k = 0; k < 2; k++) {
     ctx.fillStyle = g.beam;
     ctx.beginPath(); ctx.moveTo(R * 0.8, 0); ctx.lineTo(L, -L * w); ctx.lineTo(L, L * w); ctx.closePath(); ctx.fill();
@@ -5385,7 +5972,7 @@ function drawCrystal(b) {
   ctx.fill();
   const lit = 0.65 * (0.35 + 0.65 * bloom);
   const fill = ctx.createLinearGradient(sx * R, sy * R, -sx * R, -sy * R);
-  fill.addColorStop(0, `rgba(${Math.round(mix(cr, 255, 0.5))},${Math.round(mix(cg, 255, 0.5))},${Math.round(mix(cb, 255, 0.5))},${lit})`);
+  fill.addColorStop(0, `rgba(${Math.round(mix(cr, 255, 0.3))},${Math.round(mix(cg, 255, 0.3))},${Math.round(mix(cb, 255, 0.3))},${lit})`);
   fill.addColorStop(0.55, bodyColor(b, lit * 0.25));
   fill.addColorStop(1, 'rgba(3,4,12,0.6)');
   ctx.fillStyle = fill;
@@ -5486,14 +6073,14 @@ function drawDayNight(b, night = system.night) {
 }
 
 let predCache = null, predAge = 0;
-function drawTrajectory() {
+function drawTrajectory(again = false) {  // again: drawn a second time this frame (over a gas giant's clouds)
   const s = ship;
   if (s.landed) { predCache = null; return; }
   // once the exit lane has hold of you (or you're warping) the path is the lane's, which the prediction
   // doesn't model; it would curve back into the system, so show nothing
   if (warp || (exit && inExitLane(s.x, s.y) && Math.hypot(s.x, s.y) > ARENA_R - 200)) { predCache = null; return; }
   // recompute every other frame (and not at all while paused); a one-frame-old path looks identical
-  if (!predCache || (!paused && ++predAge >= 2)) { predCache = predict(); predAge = 0; }
+  if (!predCache || (!again && !paused && ++predAge >= 2)) { predCache = predict(); predAge = 0; }
   const p = predCache, n = p.pts.length / 2, d = 1 * px;
   ctx.save();
   // softer than the planet rims, and tinted toward the theme
@@ -5583,7 +6170,7 @@ function drawExitPointer() {
 function drawComets() {
   for (const c of comets) {
     const la = lightAt(c.x, c.y), sx = Math.cos(la), sy = Math.sin(la);
-    const v = Math.hypot(c.vx, c.vy) || 1, bx = -c.vx / v, by = -c.vy / v, f = c.fade, len = 120;
+    const v = Math.hypot(c.vx, c.vy) || 1, bx = -c.vx / v, by = -c.vy / v, f = c.fade, ck = c.k || 1, len = 120 * ck;
     ctx.save();
     ctx.globalCompositeOperation = 'lighter';
     ctx.lineCap = 'round';
@@ -5607,22 +6194,24 @@ function drawComets() {
       ctx.beginPath(); ctx.moveTo(c.x - sx * 6, c.y - sy * 6); ctx.lineTo(ix, iy); ctx.stroke();
     }
     // a small bright glow on the sunlit side
-    const gx = c.x + sx * 4, gy = c.y + sy * 4, glow = ctx.createRadialGradient(gx, gy, 0, gx, gy, 9);
+    const gx = c.x + sx * 4 * ck, gy = c.y + sy * 4 * ck, glow = ctx.createRadialGradient(gx, gy, 0, gx, gy, 9 * ck);
     glow.addColorStop(0, `rgba(255,245,215,${0.5 * f})`);
     glow.addColorStop(1, 'rgba(255,245,215,0)');
     ctx.fillStyle = glow;
-    ctx.beginPath(); ctx.arc(gx, gy, 9, 0, TAU); ctx.fill();
+    ctx.beginPath(); ctx.arc(gx, gy, 9 * ck, 0, TAU); ctx.fill();
     // faint dashed coma
     ctx.setLineDash([2 * px, 3 * px]);
     ctx.strokeStyle = `rgba(255,230,170,${0.3 * f})`;
     ctx.lineWidth = 1 * px;
-    ctx.beginPath(); ctx.arc(c.x, c.y, 11, 0, TAU); ctx.stroke();
+    ctx.beginPath(); ctx.arc(c.x, c.y, 11 * ck, 0, TAU); ctx.stroke();
     ctx.restore();
 
-    // nucleus: dark filled rock, shaded on the night side, with a glowing outline
+    // nucleus: dark filled rock, shaded on the night side, with a glowing outline (a pearl has none)
+    if (c.piece) continue;
     ctx.save();
     ctx.globalAlpha = f;
     ctx.translate(c.x, c.y);
+    ctx.scale(ck, ck);
     ctx.beginPath();
     c.shape.forEach((k, i) => {
       const a = c.spin + i / c.shape.length * TAU, rr = 6 * k;
@@ -5926,20 +6515,24 @@ function drawHUD() {
 
 // The arrival card: the system's number and bodies, then what's special here, NEW in gold.
 // Returns the y of its bottom edge (or 0 when it isn't showing).
+// On a wide screen it sits in the top-right corner, out of the way of the middle of the view (below the pause
+// button on a tablet); on a narrow one it stays across the top.
 function drawCard(top) {
   const f = cardFade();
   if (!f) return 0;
+  const corner = W >= 1000;
+  if (corner) top = TOUCH ? PAUSE_ICON + 22 : prefs.fps ? 32 : 16;
   ctx.save();
   ctx.globalAlpha = f;
   ctx.textAlign = 'left';
   ctx.textBaseline = 'top';
   ctx.font = '13px ui-monospace, Consolas, monospace';
   const title = `SYSTEM ${systemNo}  ·  ${gardens.map(b => b.name).join('  ·  ')}`;
-  const lines = card.lines, maxW = W - 32;
+  const lines = card.lines, maxW = corner ? Math.min(560, W * 0.42) : W - 32;
   const w = Math.min(maxW, Math.max(ctx.measureText(title).width, ...lines.map(l => ctx.measureText(l.text).width + (l.isNew ? 54 : 0) + 18)) + 36);
   // on a narrow screen long lines wrap
   const titleLines = wrapText(title, w - 36), wrapped = lines.map(l => wrapText(l.text, w - 52 - (l.isNew ? 36 : 0)));
-  const h = 18 + titleLines.length * 18 + wrapped.reduce((n, ls) => n + ls.length * 18 + 3, 0) + 12, x = W / 2 - w / 2;
+  const h = 18 + titleLines.length * 18 + wrapped.reduce((n, ls) => n + ls.length * 18 + 3, 0) + 12, x = corner ? W - w - 16 : W / 2 - w / 2;
   ctx.fillStyle = 'rgba(6,9,22,0.72)';
   ctx.strokeStyle = 'rgba(160,180,230,0.25)';
   ctx.lineWidth = 1;
@@ -5957,7 +6550,7 @@ function drawCard(top) {
     ly += wrapped[i].length * 18 + 3;
   });
   ctx.restore();
-  return top + h;
+  return corner ? 0 : top + h;  // (in the corner it doesn't push the messages down)
 }
 
 // While the card is up, new things in the world get a pulsing gold marker so you can find them.

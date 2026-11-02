@@ -43,10 +43,10 @@ right button for gentle thrust; landed, drag back from the ship to throw seeds.
 
 ## What's in it
 
-- Endless generated star systems: twin planets, black holes, ringed gas giants you can dive through,
-  crystal moons, trojan moons and more, each with its own colours, sky and music.
-- Comets with golden trails, solar-wind currents to ride, calm clouds, asteroids to crack open, and
-  pollen to ferry between gardens.
+- Endless generated star systems: twin planets, black holes, ringed gas giants you can vanish into,
+  crystal moons, pairs of dwarf stars, a rare neutron star and more, each with its own colours, sky and music.
+- Comets with golden trails, rogue planets, solar gusts, passing stars and eclipses, geysers and thick air,
+  solar-wind currents to ride, asteroids to crack open, seed pods to tow, and pollen to ferry between gardens.
 - Music made from play: every pickup and planting is a note, and every garden in bloom adds a layer.
 - A star map of the systems you've passed through, and a photo mode.
 - Your progress is saved in your browser.
@@ -55,8 +55,8 @@ right button for gentle thrust; landed, drag back from the ship to throw seeds.
 
 ## Tiny by design
 
-The whole game is two files: a 2 KB `index.html` and a 331 KB `game.js`. Compressed, that's about
-**107 KB**, smaller than the screenshot at the top of this page.
+The whole game is two files: a 2 KB `index.html` and a 368 KB `game.js`. Compressed, that's about
+**119 KB**, smaller than the screenshot at the top of this page.
 
 There are no images, no sound files, no fonts and no libraries. Every star, planet, plant and comet is
 drawn by code as you play, and every sound is synthesised live by your browser: the engine's hum, the
@@ -78,6 +78,26 @@ Made by cloudy-rejko and Opus 5.5.
 ![](images/banner-rogue.jpg)
 
 ## Changelog
+
+### 1.2 (2 November 2026)
+
+- **Eclipses**: now and then a moon passes in front of the sun for the world you're at. The sky dims, the
+  music hushes and fireflies rise from the gardens.
+- **Passing stars**: once in a while a small wandering star sweeps past the edge of the system, and its pull
+  bends everything loose, you included.
+- **Strings of pearls**: a comet that grazes a planet breaks into a few glowing pieces, each laying its own
+  golden trail. A comet that hits a world splashes a little of its gold back off the surface.
+- **Vanishing into gas giants**: dive into the clouds and you fade from sight, the sound grows muffled and
+  lightning flickers in the deep. Fly by your dotted line.
+- **Great trees**: land on a garden already in full bloom with over 500 seeds and a great tree grows beside
+  you (it never takes your hoard below 500).
+- **Flyby wake**: skim low and fast over a garden and its plants sway in your wake, shedding a little pollen.
+- **Stretched time** near black holes, a **beat** from the neutron star's slower beams, and faint dust pools
+  gathered ahead of and behind some moons.
+- **More plants and colours**: dandelions and ferns; a new colour theme, Plum; and richer colours in every
+  theme (no more greyish planets).
+- Planting carries on a moment after you throw seeds; the info card moves to the top-right corner on wide
+  screens; fixes for brief flashing on some laptops.
 
 ### 1.1 (31 October 2026)
 

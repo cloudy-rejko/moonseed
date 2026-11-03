@@ -29,7 +29,9 @@ function saveCfg() {
 // Lab build (index.html?lab): a playtest run through the newest features, one per system, with its own save
 // and preferences so it never touches a real game.
 const LAB = new URLSearchParams(location.search).has('lab');
-const PREFS_KEY = LAB ? 'moonseed.lab.prefs' : 'moonseed.prefs';
+// ?fresh plays as a brand-new player would (the picked first systems and all), on a save of its own
+const FRESH = new URLSearchParams(location.search).has('fresh');
+const PREFS_KEY = LAB ? 'moonseed.lab.prefs' : FRESH ? 'moonseed.fresh.prefs' : 'moonseed.prefs';
 // Player preferences that aren't physics.
 const prefs = { ship: -1, autoZoom: true, orbits: 1, fps: false };
 try { Object.assign(prefs, JSON.parse(localStorage.getItem(PREFS_KEY) || '{}')); } catch (e) { /* storage blocked */ }
@@ -75,7 +77,7 @@ function setMusic(themeName) {
   BEAT = m.beat;
 }
 setMusic('Navy');
-const SAVE_KEY = LAB ? 'moonseed.lab.save' : 'moonseed.save.v1';
+const SAVE_KEY = LAB ? 'moonseed.lab.save' : FRESH ? 'moonseed.fresh.save' : 'moonseed.save.v1';
 
 const canvas = document.getElementById('game');
 // Phones and tablets (a coarse pointer, no mouse) get the invisible joystick and a pause icon.
@@ -144,14 +146,36 @@ function plantName(old) {
   for (const ch of old) h = (h * 31 + ch.charCodeAt(0)) >>> 0;
   return NAMES[h % NAMES.length];
 }
-const FIRST_SYSTEM = {
-  nebula: THEMES[0].nebula, theme: 'Navy', archetype: 'first', ring: 0, centralMass: 1, sunAngle: -2.3,
-  defs: [
-    { name: 'Welwitschia', R: 72, mass: 1, orbit: 0, start: 0, color: [63, 224, 255], accents: ['255,79,216', '255,196,60', '255,250,230'] },
-    { name: 'Nepenthes', R: 16, mass: 0.025, orbit: 230, start: 2.4, color: [255, 79, 216], accents: ['63,224,255', '255,196,60', '255,250,230'] },
-    { name: 'Xanthorrhoea', R: 22, mass: 0.04, orbit: 380, start: -0.8, color: [255, 196, 60], accents: ['63,224,255', '255,79,216', '255,250,230'] },
+// The start of the game: a new player's first three systems come from small pools of generated systems picked
+// by eye (rendered bare and in bloom, and compared by a critic for the way they play and their colours):
+// first a calm, simple one to learn to land in, then one to say "look at that", then one with a feature that
+// pays off without much skill. After that it's all generated as you go. Someone starting over (who has seen
+// systems before) gets one of the first ones, then straight on to the generated ones. Each is the frozen
+// output of rollSystem, then touched up for a beginner: moons of about 20 in the first system (18 or more after),
+// one small moon dropped where there were three, no moonlets or giants' tiny moons (frustrating when you're new:
+// later they're fine), and plain gardens (no crystal moon) in the first.
+const SHOWCASE = [
+  [
+    {"defs":[{"R":67.56,"mass":0.922,"orbit":0,"name":"Helicodiceros","start":0,"color":[255,138,61],"accents":["255,79,139","255,188,52","95,215,255","255,250,230"]},{"R":20.0,"mass":0.036,"orbit":202.39,"start":4.28,"dir":1,"name":"Adansonia","color":[255,188,52],"accents":["255,138,61","255,79,139","95,215,255","255,250,230"]},{"R":20.44,"mass":0.038,"orbit":383.33,"start":1.45,"dir":1,"name":"Stapelia","color":[255,173,119],"accents":["255,138,61","255,79,139","255,188,52","95,215,255","255,250,230"]}],"nebula":["#120c28","#04030b"],"theme":"Sunset","archetype":"classic","ring":0,"centralMass":0.922,"innerR":107.56,"identity":{"sun":"255,195,222","sun2":null,"sun2Tint":null,"landmark":"cluster","landmarkAt":[0.279,0.95],"dust":"clouds","beltR":337.56,"showerAngle":6.05,"ambient":"ice","feature":null}},
+    {"defs":[{"R":66.63,"mass":0.958,"orbit":0,"name":"Hydnora","start":0,"color":[50,255,200],"accents":["64,140,255","255,92,128","255,250,230"]},{"R":20.0,"mass":0.036,"orbit":220.61,"start":1.45,"dir":1,"name":"Heliamphora","color":[64,140,255],"accents":["50,255,200","255,92,128","255,250,230"]},{"R":19.7,"mass":0.035,"orbit":301.85,"start":2.55,"dir":1,"name":"Strychnos","color":[255,92,128],"accents":["50,255,200","64,140,255","255,250,230"]},{"R":19.72,"mass":0.035,"orbit":389.65,"start":1.43,"dir":1,"name":"Utricularia","color":[112,255,217],"accents":["50,255,200","64,140,255","255,92,128","255,250,230"]}],"nebula":["#0e0a2a","#03020b"],"theme":"Deep","archetype":"classic","ring":0,"centralMass":0.958,"innerR":106.63,"identity":{"sun":"255,236,200","sun2":3.34,"sun2Tint":"255,195,222","landmark":"crescent","landmarkAt":[0.163,0.365],"dust":"clouds","beltR":166.63,"showerAngle":1.66,"ambient":"ice","feature":null}},
+    {"defs":[{"R":66.54,"mass":1,"orbit":0,"name":"Stapelia","start":0,"color":[192,139,255],"accents":["125,255,208","255,154,213","255,250,230"]},{"R":20.0,"mass":0.036,"orbit":181.32,"start":5.82,"name":"Xanthorrhoea","color":[255,154,213],"accents":["192,139,255","125,255,208","255,250,230"]},{"anchor":true,"R":0,"mass":0,"orbit":338.26,"start":6.2},{"R":18.0,"mass":0.029,"orbit":26.12,"start":4.54,"parent":2,"omegaMass":0.055,"omegaDist":64.75,"name":"Drosophyllum","color":[125,255,208],"accents":["192,139,255","255,154,213","255,250,230"]},{"R":17.0,"mass":0.026,"orbit":38.63,"start":7.68,"parent":2,"omegaMass":0.055,"omegaDist":64.75,"name":"Echium","color":[211,174,255],"accents":["192,139,255","125,255,208","255,154,213","255,250,230"]}],"nebula":["#160b1f","#050208"],"theme":"Candy","archetype":"twinMoons","ring":0,"centralMass":1,"innerR":106.54,"identity":{"sun":"255,205,165","sun2":null,"sun2Tint":null,"landmark":"crescent","landmarkAt":[0.841,0.182],"dust":"belt","beltR":276.54,"showerAngle":0.659,"ambient":"aurora","feature":null}},
   ],
-};
+  [
+    {"defs":[{"kind":"gas","R":93.1,"mass":1.7,"orbit":0,"tilt":0.147,"name":"Welwitschia","start":0,"color":[255,138,61],"accents":["255,79,139","255,188,52","95,215,255","255,250,230"]},{"R":21.22,"mass":0.053,"orbit":234.85,"start":5.18,"dir":1,"name":"Atropa","color":[255,188,52],"accents":["255,138,61","255,79,139","95,215,255","255,250,230"]},{"R":21.53,"mass":0.054,"orbit":323.77,"start":1.26,"dir":1,"name":"Lithops","color":[255,79,139],"accents":["255,138,61","255,188,52","95,215,255","255,250,230"]},{"R":22.57,"mass":0.06,"orbit":413.34,"start":2.03,"dir":1,"name":"Ceiba","color":[255,173,119],"accents":["255,138,61","255,79,139","255,188,52","95,215,255","255,250,230"]}],"nebula":["#120c28","#04030b"],"theme":"Sunset","archetype":"gas","ring":0,"centralMass":1.7,"innerR":195.51,"identity":{"sun":"195,222,255","sun2":null,"sun2Tint":null,"landmark":"cluster","landmarkAt":[0.967,0.398],"dust":"clouds","beltR":0,"showerAngle":1.45,"ambient":"aurora","feature":null}},
+    {"defs":[{"R":51.76,"mass":0.457,"orbit":119.17,"start":1.9,"omegaMass":0.95,"omegaDist":229.65,"name":"Utricularia","color":[255,63,180],"accents":["46,230,255","167,123,255","255,250,230"]},{"R":48.0,"mass":0.493,"orbit":110.48,"start":5.04,"omegaMass":0.95,"omegaDist":229.65,"name":"Corallorhiza","color":[46,230,255],"accents":["255,63,180","167,123,255","255,250,230"]},{"R":19.0,"mass":0.032,"orbit":397.47,"start":0.395,"name":"Sarracenia","kind":"crystal","color":[167,123,255],"accents":["255,63,180","46,230,255","255,250,230"]}],"nebula":["#140a22","#040209"],"theme":"Synthwave","archetype":"twin","ring":0,"centralMass":0.95,"innerR":209.82,"identity":{"sun":"255,205,165","sun2":1.98,"sun2Tint":"255,222,150","landmark":"crescent","landmarkAt":[0.049,0.506],"dust":"belt","beltR":319.82,"showerAngle":3.83,"ambient":"pulsar","feature":null}},
+    {"defs":[{"kind":"sun","R":15.48,"mass":0.541,"orbit":36.04,"start":3.35,"omegaMass":1.07,"omegaDist":73.04,"name":"Cerbera","color":[255,228,172],"accents":["255,228,172"]},{"kind":"sun","R":11.33,"mass":0.527,"orbit":36.99,"start":6.49,"omegaMass":1.07,"omegaDist":73.04,"name":"Cyathea","color":[178,214,255],"accents":["178,214,255"]},{"R":24.87,"mass":0.072,"orbit":255.99,"start":2.24,"dir":1,"name":"Selaginella","color":[192,139,255],"accents":["125,255,208","255,154,213","255,250,230"]},{"R":21.0,"mass":0.04,"orbit":320.13,"start":1.33,"dir":1,"name":"Azolla","color":[125,255,208],"accents":["192,139,255","255,154,213","255,250,230"]},{"R":23.69,"mass":0.066,"orbit":388.7,"start":3.22,"dir":-1,"name":"Araucaria","kind":"crystal","color":[255,154,213],"accents":["192,139,255","125,255,208","255,250,230"]}],"nebula":["#160b1f","#050208"],"theme":"Candy","archetype":"binary","ring":0,"centralMass":1.07,"innerR":175.29,"identity":{"sun":"255,228,172","sun2":null,"sun2Tint":null,"landmark":"cluster","landmarkAt":[0.527,0.221],"dust":"streams","beltR":205.29,"showerAngle":3.34,"ambient":"pulsar","feature":null}},
+  ],
+  [
+    {"defs":[{"R":67.71,"mass":0.856,"orbit":0,"name":"Ceiba","start":0,"color":[58,215,255],"accents":["255,110,199","77,255,160","255,250,230"]},{"R":19.0,"mass":0.032,"orbit":208.34,"start":5.24,"dir":-1,"name":"Hydnora","color":[77,255,160],"accents":["58,215,255","255,110,199","255,250,230"]},{"R":21.39,"mass":0.041,"orbit":381.62,"start":4.57,"dir":1,"name":"Cephalotus","color":[117,227,255],"accents":["58,215,255","255,110,199","77,255,160","255,250,230"]}],"nebula":["#05132a","#01040b"],"theme":"Aurora","archetype":"classic","ring":107.9,"centralMass":0.856,"innerR":107.71,"identity":{"sun":"255,222,150","sun2":null,"sun2Tint":null,"landmark":"galaxy","landmarkAt":[0.036,0.064],"dust":"clouds","beltR":157.71,"showerAngle":0.298,"ambient":"pulsar","feature":"rogue","rogue":{"name":"Gloriosa","R":16.65,"color":[157,235,255],"accents":["255,110,199","77,255,160","255,250,230"]}}},
+    {"defs":[{"R":71.96,"mass":1.16,"orbit":0,"name":"Aconitum","start":0,"color":[192,139,255],"accents":["125,255,208","255,154,213","255,250,230"]},{"R":20.0,"mass":0.036,"orbit":222.6,"start":0.969,"dir":1,"name":"Osmunda","color":[125,255,208],"accents":["192,139,255","255,154,213","255,250,230"],"vents":[{"a":6.12,"period":5.89,"phase":3.51},{"a":2.98,"period":6.64,"phase":5.05}]},{"R":19.79,"mass":0.035,"orbit":342.51,"start":3.52,"dir":1,"name":"Rafflesia","kind":"crystal","color":[255,154,213],"accents":["192,139,255","125,255,208","255,250,230"]}],"nebula":["#160b1f","#050208"],"theme":"Candy","archetype":"classic","ring":0,"centralMass":1.16,"innerR":111.96,"identity":{"sun":"195,222,255","sun2":null,"sun2Tint":null,"landmark":"cluster","landmarkAt":[0.769,0.956],"dust":"shower","beltR":291.96,"showerAngle":2.47,"ambient":"aurora","feature":null}},
+    {"defs":[{"R":59.67,"mass":1.06,"orbit":0,"name":"Utricularia","start":0,"color":[255,112,92],"accents":["255,190,60","56,226,214","255,250,230"]},{"R":20.17,"mass":0.037,"orbit":191.14,"start":2.18,"dir":1,"name":"Mandragora","color":[255,190,60],"accents":["255,112,92","56,226,214","255,250,230"]},{"R":21.96,"mass":0.043,"orbit":296.92,"start":3.18,"dir":1,"name":"Carnegiea","color":[56,226,214],"accents":["255,112,92","255,190,60","255,250,230"]},{"R":21.79,"mass":0.043,"orbit":388.9,"start":5.24,"dir":-1,"name":"Hydnora","color":[255,155,141],"accents":["255,112,92","255,190,60","56,226,214","255,250,230"]}],"nebula":["#1d0a26","#06020b"],"theme":"Plum","archetype":"classic","ring":0,"centralMass":1.06,"innerR":99.67,"identity":{"sun":"195,222,255","sun2":null,"sun2Tint":null,"landmark":"galaxy","landmarkAt":[0.845,0.508],"dust":"clouds","beltR":249.67,"showerAngle":0.278,"ambient":"aurora","feature":"gust"}},
+  ],
+];
+let tour = false;  // on a new player's tour of the picked systems (saved with the game)
+function showcaseSystem(n, prev = {}) {
+  const pool = SHOWCASE[n - 1], fresh = pool.filter(sys => sys.theme !== prev.theme);  // (never the same colours twice running)
+  return JSON.parse(JSON.stringify(pick(fresh.length ? fresh : pool)));
+}
 
 // System layouts. Each returns body definitions (positions on rails) plus a few system-wide settings:
 // centralMass (what the stardust and outer moons orbit), innerR (closest stardust orbit), ring, comet timing.
@@ -349,6 +373,7 @@ const FIRST_IDENTITY = { sun: '255,236,200', sun2: null, landmark: 'galaxy', lan
 // plain random again.
 function generateSystem(n, prev = {}) {
   if (LAB) return labSystem(n, prev);
+  if (tour && n <= SHOWCASE.length) return showcaseSystem(n, prev);
   if (n === 2) return rollSystem(n, prev);
   const seen = new Set(prefs.seen || []), wantGame = n % 3 === 0 ? 0 : 1;
   let best = null, bestScore = -Infinity;
@@ -842,7 +867,7 @@ function buildSystem(n, saved = null) {
   systemNo = n;
   const prev = system ? { archetype: system.archetype, theme: system.theme } : {};
   if (saved && !THEMES.some(t => t.name === saved.theme)) saved = retheme(saved);  // older palettes
-  const sys = saved ? { ...saved, defs: saved.bodies } : n === 1 && !LAB ? FIRST_SYSTEM : generateSystem(n, prev);
+  const sys = saved ? { ...saved, defs: saved.bodies } : n === 1 && !LAB ? showcaseSystem(1) : generateSystem(n, prev);
   allBodies = sys.defs.map(def => ({
     ...def, name: def.anchor ? def.name : plantName(def.name || ''), dir: def.dir || 1, angle: def.angle ?? def.start, bloomed: !!def.bloomed,
     plants: (def.plants || []).map(([a, h, kind, tip, flip, sway]) => ({ a, h, kind, tip, flip, sway, grow: 1 })),
@@ -1594,28 +1619,47 @@ let streamTimer, cometTimer, ringTimer, diskTimer = 0, fireflyTimer, saveTimer, 
 let title = true, paused = false, showHints = true, time = 0;
 let photo = null, starMap = false, visited = [];  // photo mode ({ at, wasPaused }), star map open, systems left behind
 
-// Two kinds of line. say() answers something you just did (a catch, a bloom, a key) and shows at once.
-// remark() only comments on the sky around you (a comet arrives, bamboo sprouts, a rogue drifts in): it waits
-// for a quiet moment (no text for a few seconds, no arrival card, not too soon after the last remark), gives up
-// if none comes soon, and with a key it's a tip said once ever. So the screen never chatters.
-const MSG_TIME = 4, QUIET_GAP = 3, QUIET_EVERY = 15, QUIET_WAIT = 14;  // seconds: a line shows, the hush after it, between remarks, how long one waits
-let remarks = [], remarkAt = -99;
-function say(text, color = '#cfe') { message = { text, color, t: time }; }
-function remark(text, color = '#cfe', key = null) {
+// The line of text under the HUD. Every line has a kind, which says how much it matters and how long it stays
+// worth saying (`wait`: a line about something that has already passed is worse than no line at all):
+//   reply   straight back at you: a key, a throw loaded or called off. Always at once.
+//   moment  something you did came off: a garden blooms, a catch, a new moon, a milestone. At once.
+//   note    worth knowing right now: a hiccup (bumpy, a sun), why a garden won't grow, a rare surprise.
+//   tip     how something works, said once ever (with a key). Waits for a quiet moment, briefly.
+//   news    something arrived that stays a while: a comet, the rogue planet, a passing star.
+//   aside   a passing remark on what just happened: spores, a dive, skimming air. Easily dropped.
+// The top three cut in (over anything lesser, or over anything at all after it's had a second and a half). The
+// rest wait their turn: the screen clear, a little hush, no arrival card, and for news and asides 15 s since
+// the last of those. Each gives up once its wait is over, so nothing turns up late and out of context.
+const LINES = {  // kind: [priority, wait (s), hush first (s)]
+  reply: [5, 0, 0], moment: [4, 3, 0], note: [3, 2, 0], tip: [2, 6, 1.5], news: [1, 12, 3], aside: [0, 3, 3],
+};
+const MSG_TIME = 4;  // how long a line shows
+let lineQueue = [], asideAt = -99;
+function say(text, color = '#cfe', kind = 'reply', key = null) {
   if (key && (prefs.told || []).includes(key)) return;
-  if (remarks.length < 3 && !remarks.some(r => r.text === text)) remarks.push({ text, color, key, until: time + QUIET_WAIT });
+  const [prio, wait] = LINES[kind], line = { text, color, kind, prio, key, until: time + wait };
+  if (lineFits(line)) showLine(line);
+  else if (wait > 0 && lineQueue.length < 4 && !lineQueue.some(q => q.text === text)) lineQueue.push(line);
 }
-function updateRemarks() {
-  remarks = remarks.filter(r => r.until > time);
-  if (!remarks.length || card || warp || time - (message ? message.t : -99) < MSG_TIME + QUIET_GAP || time - remarkAt < QUIET_EVERY) return;
-  const r = remarks.shift();
-  say(r.text, r.color); remarkAt = time;
-  if (r.key && !LAB) { prefs.told = [...(prefs.told || []), r.key]; savePrefs(); }  // (the lab tells you every time)
+function lineFits(line) {
+  const age = message ? time - message.t : 99;
+  if (line.prio >= 3) return age >= MSG_TIME || line.prio >= (message.prio ?? 5) || age > 1.5;
+  return age >= MSG_TIME + LINES[line.kind][2] && !card && !warp && (line.prio === 2 || time - asideAt > 15);
+}
+function showLine(line) {
+  message = { text: line.text, color: line.color, t: time, prio: line.prio };
+  if (line.prio < 2) asideAt = time;
+  if (line.key && !LAB) { prefs.told = [...(prefs.told || []), line.key]; savePrefs(); }  // (the lab tells you every time)
+}
+function updateLines() {
+  lineQueue = lineQueue.filter(l => l.until > time);
+  const next = lineQueue.filter(lineFits).sort((a, b) => b.prio - a.prio)[0];
+  if (next) { lineQueue.splice(lineQueue.indexOf(next), 1); showLine(next); }
 }
 // Visitors (a comet, the rogue planet, a passing star) and the solar gusts keep out of each other's way, so
 // two never arrive together: one that's due while another has just come (or a gust is near) waits a little.
 let visitAt = -99;
-const skyBusy = () => time - visitAt < 15 || gusts.some(g => Math.abs(g - time) < 12);
+const skyBusy = () => time - visitAt < 15 || gusts.some(g => Math.abs(g - time) < 5);  // (gusts come every 15-25 s)
 
 function startGame() {
   title = false;
@@ -1626,7 +1670,7 @@ function startGame() {
 
 function reset() {
   try { localStorage.removeItem(SAVE_KEY); } catch (e) { /* storage blocked */ }
-  visited = []; seedMark = 0;
+  visited = []; seedMark = 0; tour = FRESH || !(prefs.seen || []).length;
   enterSystem(1);
   say('Gather stardust. Land gently to plant it.');
 }
@@ -1648,12 +1692,12 @@ function enterSystem(n, saved = null) {
   traces = []; shipTrack = newTrack();
   eclipse = 0; eclipseOn = null; eclipseNext = time + 45; stretch = 0; pulsarD = null; setupPools(); passing = null;
   cloudFade = 0; cloudBody = null; cloudIn = false; cloudFlash = null;
-  lob = null; lobbed = []; sowing = []; pods = []; podTimer = POD_RESPAWN; remarks = [];
+  lob = null; lobbed = []; sowing = []; pods = []; podTimer = POD_RESPAWN; lineQueue = [];
   if (system.identity.feature === 'rocks') for (let i = 0; i < 4; i++) spawnRock();
   if (system.identity.feature === 'tow') for (let i = 0; i < 2; i++) spawnPod();  // not saved: fresh pods each visit
   gusts = []; spores = [];  // not saved either: the first gust comes a little while after you arrive
   if (system.identity.feature === 'gust') { gusts.push(time + rand(30, 36)); while (gusts.length < 3) gusts.push(gusts[gusts.length - 1] + rand(...GUST_GAP)); }
-  system.arrivedAt = time;
+  system.arrivedAt = time; system.cometSaid = 0;
   chain = 0; lastPickup = -10; chainPopup = null;
   streamTimer = 0; cometTimer = rand(12, 45);  // (sometimes the first thing to chase, sometimes a while in) ringTimer = 0; fireflyTimer = 0; saveTimer = 5;
   allBloomed = gardens.every(b => b.bloomed || b.made || b.rogue);  // a moon you made (or a rogue planet) is a bonus garden, never a chore
@@ -1675,7 +1719,7 @@ function saveGame() {
   if (!ship || warp) return;
   const r = (v, d) => Math.round(v * d) / d;
   const data = {
-    systemNo, seeds: ship.seeds + lobbed.reduce((n, m) => n + (m.fade ? 0 : m.n), 0) + sowing.reduce((n, w) => n + w.left, 0), visited,  // seeds in flight or still sowing go back in the bag
+    systemNo, tour: tour || undefined, seeds: ship.seeds + lobbed.reduce((n, m) => n + (m.fade ? 0 : m.n), 0) + sowing.reduce((n, w) => n + w.left, 0), visited,  // seeds in flight or still sowing go back in the bag
     exit: exit ? r(exit.angle, 1000) : null,
     rogue: rogue ? rogueSave(r) : undefined,
     nebula: system.nebula, ring: system.ring, theme: system.theme, archetype: system.archetype,
@@ -1777,7 +1821,7 @@ function spawnComet() {
     age: 0, travel: 0, dropped: 0, caught: false, fade: 1, leaving: false, spin: rand(0, TAU),
     shape: Array.from({ length: 7 }, () => rand(0.75, 1.15)),  // a lumpy little nucleus
   });
-  remark('A comet! Follow its golden trail', '#ffe7a0', 'comet');
+  say(system.cometSaid++ ? pick(['Another comet, trailing gold', 'A comet swings in']) : 'A comet! Follow its golden trail', '#ffe7a0', 'news');
   arpeggio([SCALE[10], SCALE[8], SCALE[9], SCALE[7]], 0.12, 0.05);
 }
 
@@ -1813,7 +1857,7 @@ function update(dt) {
   updateClouds(dt);
   updateFireflies(dt);
   updateExit(dt);
-  updateRemarks();
+  updateLines();
   if (system.lab && system.lab.tick) system.lab.tick(dt);
   updateParticles(dt);
   updateMusic(dt);
@@ -2013,7 +2057,7 @@ function updateShip(dt) {
     const waiting = gardens.find(o => o.needs === b.name && !o.pollinated);
     if (waiting && !s.pollen && bloomOf(b) >= 0.4) {
       s.pollen = b;
-      say(`You carry ${b.name} pollen. ${waiting.name} is waiting for it`, bodyColor(b));
+      say(`You carry ${b.name} pollen. ${waiting.name} is waiting for it`, bodyColor(b), 'note');
     }
   }
 
@@ -2030,7 +2074,7 @@ function updateShip(dt) {
   const riding = currentK(s.x, s.y) > 0.3;
   if (riding && !s.riding) {
     thud(0.07, 2400, 0.9, 500);  // a soft whoosh
-    if (!system.rodeCurrent) { system.rodeCurrent = true; remark('Riding the solar wind', '#bfe8ff', 'wind'); }
+    if (!system.rodeCurrent) { system.rodeCurrent = true; say('Riding the solar wind', '#bfe8ff', 'aside'); }
   }
   s.riding = riding;
   snapAssist(dt);
@@ -2061,7 +2105,7 @@ function updateShip(dt) {
       s.slide = b; s.airborne = false; s.slideCalm = 0;
       thud(0.06, 900, 0.5, 300);
       slideStep(b, nx, ny, svx, svy, tx * nx + ty * ny, dt);
-      if (!system.skidSaid) { system.skidSaid = true; remark(`Skidding with ${b.name}'s spin: come down moving with the ground to touch down gently`, bodyColor(b), 'skid'); }
+      if (!system.skidSaid) { system.skidSaid = true; say(`Skidding with ${b.name}'s spin: come down moving with the ground to touch down gently`, bodyColor(b), 'tip', 'skid'); }
       return;
     }
     s.slide = null;  // a bounce ends a skid
@@ -2116,17 +2160,18 @@ function land(b, la, speed) {
       // delivering the pollen completes the errand: the whole garden springs up around you, plant after
       // plant rolling out over a couple of seconds, and the last one brings the full-bloom moment
       burstIntoBloom(b, la);
-      say(`${b.name} is pollinated and bursts into bloom!`, bodyColor(b));
+      say(`${b.name} is pollinated and bursts into bloom!`, bodyColor(b), 'moment');
       saveGame();
-    } else {
-      say(bloomOf(donor) >= 0.4 ? `${b.name} only grows with pollen from ${donor.name}` : `${b.name} needs ${donor.name} pollen. Grow ${donor.name} a little first`, bodyColor(donor));
+    } else if (time - (b.needSaidAt ?? -99) > 15) {
+      b.needSaidAt = time;
+      say(bloomOf(donor) >= 0.4 ? `${b.name} only grows with pollen from ${donor.name}` : `${b.name} needs ${donor.name} pollen. Grow ${donor.name} a little first`, bodyColor(donor), 'note');
     }
     return;
   }
   // said once, then only again after you've flown well away from it, and not more than every 20 s
   // (hovering just over the surface used to bring it up on every little touch)
   if (b.bloomed && s.seeds > 0 && b.fullHint !== false && time - (b.fullSaidAt ?? -99) > 20) {
-    say(`${b.name} is already in full bloom`, bodyColor(b));
+    say(`${b.name} is already in full bloom`, bodyColor(b), 'note');
     b.fullSaidAt = time; b.fullHint = false;
   }
   if (speed < cfg.landSpeed * 0.3) {
@@ -2155,7 +2200,7 @@ function bump(speed, b, nx, ny) {
   if (speed > cfg.landSpeed * 1.6) {
     s.tumble = 0.7;
     s.angVel = rand(5, 8) * (Math.random() < 0.5 ? -1 : 1);
-    if (s.seeds > 0) say('Bumpy! Some seeds spilled', '#ffcf8a');
+    if (s.seeds > 0) say('Bumpy! Some seeds spilled', '#ffcf8a', 'note');
     spillSeeds(Math.ceil(s.seeds / 2), nx, ny);
     thud(0.35, 500);
   } else {
@@ -2176,7 +2221,7 @@ function spitOut(b, nx, ny) {
   for (let i = 0; i < lost; i++) spawnDiskMote(b);
   burst(s.x, s.y, 30, { vx: s.vx * 0.3, vy: s.vy * 0.3, speed: [30, 110], life: [0.4, 1], color: system.dustCore });
   thud(0.3, 220, 0.7, 50);
-  say(lost ? 'The black hole spat you out. Some seeds fell into its disk' : 'The black hole spat you out', '#d8c8ff');
+  say(lost ? 'The black hole spat you out. Some seeds fell into its disk' : 'The black hole spat you out', '#d8c8ff', 'note');
 }
 
 // A skid: sliding along the ground in flight, from touching down across a fast spinner's moving ground, or
@@ -2232,7 +2277,7 @@ function sunBounce(b, nx, ny) {
   s.tumble = 0.5; s.angVel = rand(3, 5) * (Math.random() < 0.5 ? -1 : 1);
   burst(s.x, s.y, 24, { vx: s.vx * 0.3, vy: s.vy * 0.3, speed: [30, 100], life: [0.4, 1], color: b.color.join(',') });
   thud(0.2, 1800, 0.8, 200);
-  if (time - (system.sunSaidAt ?? -99) > 30) { system.sunSaidAt = time; say(b.kind === 'neutron' ? `${b.name} is a neutron star, far too dense to land on` : `${b.name} is a sun, far too bright to land on`, `rgb(${b.color.join(',')})`); }
+  if (time - (system.sunSaidAt ?? -99) > 30) { system.sunSaidAt = time; say(b.kind === 'neutron' ? `${b.name} is a neutron star, far too dense to land on` : `${b.name} is a sun, far too bright to land on`, `rgb(${b.color.join(',')})`, 'note'); }
 }
 
 // Moving fast through thick air: faint wisps stream off the ship and a soft rush of wind (no heat, no harm).
@@ -2245,7 +2290,7 @@ function airWisps(through, dt) {
   }
   if (time - (s.windAt ?? -9) > 0.3) { s.windAt = time; thud(0.02 + 0.05 * k, 900 + 1400 * k, 0.45); }
   const b = airy.find(o => Math.hypot(s.x - o.px, s.y - o.py) < o.R * o.air);
-  if (b && !b.skimSaid && through > 50) { b.skimSaid = true; remark(`Skimming the air of ${b.name}`, bodyColor(b)); }
+  if (b && !b.skimSaid && through > 50) { b.skimSaid = true; say(`Skimming the air of ${b.name}`, bodyColor(b), 'aside'); }
 }
 
 // A gas giant has no ground: you can dive right through it. Its pull weakens toward the core (it's
@@ -2263,7 +2308,7 @@ function cloudDrag(o, dt, isShip) {
       const col = Math.random() < 0.7 ? b.color.join(',') : pick(b.accents);
       particles.push({ x: o.x + rand(-6, 6), y: o.y + rand(-6, 6), vx: o.vx * 0.2 + rand(-12, 12), vy: o.vy * 0.2 + rand(-12, 12), life: rand(0.7, 1.4), max: 1.4, color: col, size: rand(2, 3.2), grav: false });
     }
-    if (!b.divedAt) { b.divedAt = time; remark(`Diving into the clouds of ${b.name}, out of sight`, bodyColor(b)); thud(0.08, 600, 1.2, 120); }
+    if (!b.divedAt) { b.divedAt = time; say(`Diving into the clouds of ${b.name}, out of sight`, bodyColor(b), 'aside'); thud(0.08, 600, 1.2, 120); }
   }
 }
 
@@ -2370,7 +2415,7 @@ function updateGeysers(dt) {
 // lifted off a vent: a soft rising note, and once a system a word
 function puffedUp(b) {
   voice(SCALE[4] * 2, 0.025, 1.2, 0.05, 'triangle');
-  if (!system.puffSaid) { system.puffSaid = true; remark(`A geyser on ${b.name} lifts you. Ride it up, catch the dust`, bodyColor(b), 'geyser'); }
+  if (!system.puffSaid) { system.puffSaid = true; say(`A geyser on ${b.name} lifts you. Ride it up, catch the dust`, bodyColor(b), 'tip', 'geyser'); }
 }
 
 // ===== Vanishing into a gas giant =====
@@ -2460,7 +2505,7 @@ function startPassing(lead = PASS_LEAD) {
   };
   passing.px = passing.x0; passing.py = passing.y0;
   bodies.push(passing);
-  remark('A wandering star passes by the system. Feel its pull', `rgb(${tint})`);
+  say('A wandering star passes by the system. Feel its pull', `rgb(${tint})`, 'news');
   voice(CHORDS[0][0] / 2, 0.05, 6, 2); voice(CHORDS[0][2], 0.015, 6, 2.5, 'triangle');
 }
 const passAt = (p, t) => [p.x0 + p.vx * (t - p.t0), p.y0 + p.vy * (t - p.t0)];
@@ -2611,7 +2656,7 @@ function growTree(b, s, dt) {
     const [c0, c1, c2] = b.color, side = Math.random() < 0.5 ? -1 : 1;
     t = b.tree = { a: s.landAngle - b.spin + side * 16 / b.R, n: 0, tip: pick(b.accents) || `${c0},${c1},${c2}`, flip: side, sway: rand(0, TAU) };
     s.treeTimer = 0.4;
-    say(`A great tree takes root on ${b.name}`, bodyColor(b));
+    say(`A great tree takes root on ${b.name}`, bodyColor(b), 'moment');
     voice(CHORDS[0][0] / 2, 0.04, 3, 0.4);
   }
   s.treeTimer = (s.treeTimer ?? 0) - dt;
@@ -2622,7 +2667,7 @@ function growTree(b, s, dt) {
   if (t.n % 10 === 0) voice(SCALE[(t.n / 10 + 2) % SCALE.length] * 2, 0.03, 1.4, 0.01, 'triangle');
   burst(b.px + Math.cos(wa) * (b.R + H * 0.8), b.py + Math.sin(wa) * (b.R + H * 0.8), 2, { vx: b.pvx, vy: b.pvy, speed: [5, 18], life: [0.3, 0.7], color: t.tip });
   if (t.n >= TREE_MAX) {
-    remark(`The great tree on ${b.name} is fully grown`, bodyColor(b));
+    say(`The great tree on ${b.name} is fully grown`, bodyColor(b), 'aside');
     waves.push({ body: b, off: [Math.cos(wa) * (b.R + H * 0.7), Math.sin(wa) * (b.R + H * 0.7)], t0: time, dur: 2, r0: 4, r1: 60, color: t.tip, w: 1.6 });
     arpeggio(SCALE.slice(2, 9), 0.08, 0.07);
   }
@@ -2741,7 +2786,7 @@ function updateStretch(dt) {
   let want = 0;
   if (h && !warp) want = smooth(clamp((h.R * 12 - Math.hypot(ship.x - h.px, ship.y - h.py)) / (h.R * 7), 0, 1));  // from 12 radii out, full by 5
   stretch += (want - stretch) * (1 - Math.exp(-1.5 * dt));
-  if (stretch > 0.5 && !system.stretchSaid) { system.stretchSaid = true; remark('So close to the black hole, time itself stretches', `rgb(${system.dustHalo})`, 'stretch'); }
+  if (stretch > 0.5 && !system.stretchSaid) { system.stretchSaid = true; say('So close to the black hole, time itself stretches', `rgb(${system.dustHalo})`, 'tip', 'stretch'); }
 }
 
 // The pulsar's beat: each time one of a neutron star's beams sweeps across you, a note rings out (stepping
@@ -2875,9 +2920,9 @@ function shipSun(s, hx, hy, dt) {
   const inGust = SUN[2] > 0.08;
   if (inGust && !s.inGust && SUN[3] > 0.5) {
     thud(0.05, 2200, 1.3, 400);
-    if (!system.gustSaid) { system.gustSaid = true; remark('A solar gust: coast and a sail opens to surf it, or tuck in behind a moon', `rgb(${system.identity.sun})`, 'gust'); }
+    if (!system.gustSaid) { system.gustSaid = true; say('A solar gust: coast and a sail opens to surf it, or tuck in behind a moon', `rgb(${system.identity.sun})`, 'tip', 'gust'); }
   }
-  if (inGust && SUN[3] < 0.2 && !system.shadeSaid) { system.shadeSaid = true; remark('In the shadow: the gust passes you by', `rgb(${system.identity.sun})`, 'shade'); }
+  if (inGust && SUN[3] < 0.2 && !system.shadeSaid) { system.shadeSaid = true; say('In the shadow: the gust passes you by', `rgb(${system.identity.sun})`, 'tip', 'shade'); }
   s.inGust = inGust;
 }
 function updateGusts(dt) {
@@ -2992,7 +3037,7 @@ function sporeRoots(sp, b, a) {
   const x = b.px + Math.cos(a) * b.R, y = b.py + Math.sin(a) * b.R;
   burst(x, y, 6, { vx: b.pvx, vy: b.pvy, dir: a, spread: 1.6, speed: [6, 20], life: [0.4, 0.9], color: `${c0},${c1},${c2}` });
   voice(SCALE[(n + 2) % SCALE.length] * 4, 0.012, 1.2, 0.02, 'triangle');  // a tiny high chime
-  if (time - (system.sporeSaidAt ?? -99) > 30) { system.sporeSaidAt = time; remark(`Spores from ${from.name} took root on ${b.name}`, bodyColor(from)); }
+  if (time - (system.sporeSaidAt ?? -99) > 30) { system.sporeSaidAt = time; say(`Spores from ${from.name} took root on ${b.name}`, bodyColor(from), 'aside'); }
 }
 function drawSpores() {
   ctx.save();
@@ -3073,9 +3118,9 @@ function plantSeed(b, near) {
       a: twin ? first.a + (Math.random() < 0.5 ? -1 : 1) * rand(10, 16) / b.R : a, h: bamboo ? rand(34, 38) : Math.random() < 0.15 ? rand(12, 17) : rand(4, 9), grow: 0, sway: rand(0, TAU), flip: Math.random() < 0.5 ? -1 : 1,
       kind: bamboo ? BAMBOO : pickKind(bloomOf(b)), tip: Math.random() < 0.25 ? pick(b.accents) : `${c0},${c1},${c2}`,
     });
-    if (twin) { b.bambooTwin = null; remark('Double bamboo! What does it mean?', `rgb(${c0},${c1},${c2})`); }
+    if (twin) { b.bambooTwin = null; say('Double bamboo! What does it mean?', `rgb(${c0},${c1},${c2})`, 'moment'); }  // (a moment: rare enough never to miss)
     else if (bamboo) {
-      remark(`Bamboo is sprouting on ${b.name}!`, `rgb(${c0},${c1},${c2})`);
+      say(`Bamboo is sprouting on ${b.name}!`, `rgb(${c0},${c1},${c2})`, 'note');
       if (Math.random() < 0.05) b.bambooTwin = time + rand(3, 5);
     }
   }
@@ -3088,7 +3133,7 @@ function plantSeed(b, near) {
   if (!b.bloomed && b.plants.length >= b.maxPlants) {
     b.bloomed = true;
     b.fullHint = false; b.fullSaidAt = time;  // no "already in full bloom" until you've left and come back
-    say(`${b.name} is in full bloom`, `rgb(${c0},${c1},${c2})`);
+    say(`${b.name} is in full bloom`, `rgb(${c0},${c1},${c2})`, 'moment');
     // the moment: two rings of light roll out from the body, petals burst in the theme's colours, and the
     // music swells with a chord under the arpeggio
     waves.push({ body: b, t0: time, dur: 2.6, r0: b.R, r1: b.R + 160, color: `${c0},${c1},${c2}`, w: 2.5 });
@@ -3107,7 +3152,7 @@ function plantSeed(b, near) {
       allBloomed = true;
       allBloomedAt = time;
       openExit();
-      setTimeout(() => { say('Everything blooms. Follow the light out of the system.'); arpeggio([...SCALE].reverse(), 0.12); }, 1500);
+      setTimeout(() => { say('Everything blooms. Follow the light out of the system.', '#cfe', 'moment'); arpeggio([...SCALE].reverse(), 0.12); }, 1500);
     }
     saveGame();
   }
@@ -3214,7 +3259,7 @@ function updateComets(dt) {
       s.seeds += c.piece ? 2 : 5;
       burst(c.x, c.y, 30, { vx: c.vx, vy: c.vy, speed: [30, 120], life: [0.4, 1], color: '255,230,160' });
       arpeggio([SCALE[5], SCALE[7], SCALE[9], SCALE[10]], 0.06, 0.08);
-      say(c.piece ? 'You caught a pearl! +2 seeds' : 'You caught the comet! +5 seeds', '#ffe7a0');
+      say(c.piece ? 'You caught a pearl! +2 seeds' : 'You caught the comet! +5 seeds', '#ffe7a0', 'moment');
     }
     // once it has swung past the planet and climbed back out, it slowly fades away
     if (c.age > 10 && r > 420) c.leaving = true;
@@ -3263,7 +3308,7 @@ function updateRocks(dt) {
     // said once ever, a little while into the first system with rocks
     if (LAB && !prefs.moonHint && !warp && time - system.arrivedAt > 9 && time - (message ? message.t : -9) > 5 && bodies.some(b => b.holdR)) {
       prefs.moonHint = true; savePrefs();
-      say('Nudge a rock into orbit around a moon to make a new moon', '#cfd8ff');
+      say('Nudge a rock into orbit around a moon to make a new moon', '#cfd8ff', 'tip');
     }
   }
   const s = ship;
@@ -3329,7 +3374,6 @@ function crackRock(i) {
   burst(k.x, k.y, 9, { vx: k.vx, vy: k.vy, speed: [40, 110], life: [0.5, 1.1], color: '215,222,245', shard: true });
   thud(0.2, 900, 0.35);
   arpeggio([SCALE[4], SCALE[6], SCALE[8]], 0.05, 0.06);
-  if (!system.crackedOnce) { system.crackedOnce = true; remark('It cracked open into stardust', '#cfd8ff', 'crack'); }
 }
 
 // ===== Seed lob =====
@@ -3380,7 +3424,7 @@ function checkSeedMilestone() {
     3000: 'Over 3,000 seeds. Even the comets are jealous',
   };
   const tint = seedTint(s.seeds);
-  say(lines[seedMark] || `Over ${n} seeds aboard. Wow! Careful!`, `rgb(${tint})`);
+  say(lines[seedMark] || `Over ${n} seeds aboard. Wow! Careful!`, `rgb(${tint})`, 'moment');
   arpeggio([SCALE[3], SCALE[5], SCALE[7], SCALE[10]].map(f => f * 2), 0.07, 0.07);
   burst(s.x, s.y, 26, { vx: s.vx, vy: s.vy, speed: [25, 80], life: [0.5, 1.1], color: tint });
 }
@@ -3475,7 +3519,7 @@ function updateLob(dt) {
   const taking = s.landed && !s.holdSeeds && !s.landed.bloomed && !(s.landed.needs && !s.landed.pollinated);
   if (s.landed && s.seeds > 0 && !prefs.lobHint && !warp && time - (s.landedAt ?? time) > (taking ? 4 : 1.5) && time - (message ? message.t : -9) > 3) {
     prefs.lobHint = true; savePrefs();
-    say(inputMode === 'touch' ? 'Drag back from the ship to throw seeds' : inputMode === 'mouse' ? 'Drag back from the ship to throw seeds (or hold E to aim)' : 'Hold E to aim a throw of seeds: arrows adjust, let go to throw');
+    say(inputMode === 'touch' ? 'Drag back from the ship to throw seeds' : inputMode === 'mouse' ? 'Drag back from the ship to throw seeds (or hold E to aim)' : 'Hold E to aim a throw of seeds: arrows adjust, let go to throw', '#cfe', 'tip');
   }
   for (let i = lobbed.length - 1; i >= 0; i--) {
     const m = lobbed[i];
@@ -3550,7 +3594,7 @@ function seedLands(m, b, a) {
   }
   if (b !== ship.landed && time - (system.lobSaidAt ?? -9) > 6) {
     system.lobSaidAt = time;
-    say(!n ? `${b.name} has no room for more` : `Nice shot! ${n === 1 ? 'A seed' : `${n} seeds`} took root on ${b.name}`, bodyColor(b));
+    say(!n ? `${b.name} has no room for more` : `Nice shot! ${n === 1 ? 'A seed' : `${n} seeds`} took root on ${b.name}`, bodyColor(b), 'note');
   }
 }
 function drawLob() {
@@ -3724,7 +3768,7 @@ function updatePods(dt) {
       if (!system.towSaid) {
         system.towSaid = true;
         const off = inputMode === 'touch' ? 'tap it' : inputMode === 'mouse' ? 'click it' : 'press E';
-        say(`Hooked a seed pod. Smash it into a garden to burst it, or ${off} to let go`, `rgb(${podRGB(p)})`);
+        say(`Hooked a seed pod. Smash it into a garden to burst it, or ${off} to let go`, `rgb(${podRGB(p)})`, 'note');
       }
     }
   }
@@ -3753,13 +3797,13 @@ function podContacts(p, dt) {
       rvx *= 0.9; rvy *= 0.9;
       p.vx = b.pvx + rvx; p.vy = b.pvy + rvy;
       resting = true;
-      if ((p.rest += dt) > 1) { podBloom(p, b, la); return true; }  // at rest a moment: it bursts there
+      if ((p.rest += dt) > 1) { podBloom(p, b, la, null); return true; }  // at rest a moment: it bursts there (by itself: no word)
       continue;
     }
     // something it can't grow on: out, and a little push off (along the way it was rolling, or the body's turn)
     if (towed && gardens.includes(b) && time - (b.podSaidAt ?? -99) > 8) {
       b.podSaidAt = time;
-      say(b.bloomed ? `${b.name} is in full bloom. Take the pod to another garden` : `${b.name} needs ${b.needs} pollen first`, bodyColor(b));
+      say(b.bloomed ? `${b.name} is in full bloom. Take the pod to another garden` : `${b.name} needs ${b.needs} pollen first`, bodyColor(b), 'note');
     }
     p.x = b.px + nx * (min + 0.5); p.y = b.py + ny * (min + 0.5);
     const vt = rvy * nx - rvx * ny, side = Math.sign(vt) || b.dir || 1;
@@ -3783,7 +3827,7 @@ function podSmash(p, b, la, speed) {
 }
 // About a quarter of the garden comes up at once, nearest first, rolling out over a second or two
 // (if that fills it, the last plant brings the full-bloom moment).
-function podBloom(p, b, at) {
+function podBloom(p, b, at, kind = 'moment') {
   const [c0, c1, c2] = b.color, own = `${c0},${c1},${c2}`, local = at - b.spin;
   const room = b.maxPlants - b.plants.length, n = Math.min(Math.ceil(b.maxPlants * 0.25), room);
   const fills = n >= room, spread = Math.min(Math.PI, 0.3 + n * 4 / b.R);
@@ -3801,7 +3845,7 @@ function podBloom(p, b, at) {
   waves.push({ body: b, t0: time, dur: 1.8, r0: b.R, r1: b.R + 70, color: pc, w: 2 });
   thud(0.12, 500, 0.5, 150);
   arpeggio(SCALE.slice(2, 8), 0.1, 0.07);
-  say(`The pod bursts open on ${b.name}`, bodyColor(b));
+  if (kind) say(`The pod bursts open on ${b.name}`, bodyColor(b), kind);
   saveGame();
 }
 function drawPods() {
@@ -4001,7 +4045,7 @@ function lightTrace(shape) {
     prefs.shapes.push(kind);
     savePrefs();
     const other = b.twin ? b.twin.name : '';
-    say(kind === 'orbit' ? `A ring of light around ${b.name}` : kind === 'sling' ? `A bright arc past ${b.name}` : `A figure-eight round ${b.name} and ${other}`, `rgb(${color})`);
+    say(kind === 'orbit' ? `A ring of light around ${b.name}` : kind === 'sling' ? `A bright arc past ${b.name}` : `A figure-eight round ${b.name} and ${other}`, `rgb(${color})`, 'moment');
   }
 }
 // where a trace sits now: round its body, or for a figure-eight in its twin pair's turning frame
@@ -4131,7 +4175,7 @@ function makeMoon(i) {
   for (const f of CHORDS[0]) voice(f, 0.03, 5, 0.9, 'triangle');
   voice(CHORDS[0][0] / 2, 0.05, 5, 0.8);
   arpeggio([SCALE[0], SCALE[4], SCALE[7], SCALE[9], SCALE[10]], 0.13, 0.06);
-  say(`A new moon: ${name}`, `rgb(${own})`);
+  say(`A new moon: ${name}`, `rgb(${own})`, 'moment');
   saveGame();
 }
 // Hints, kept quiet: a nudged rock near a moon shows the orbit it's on as a faint dashed ellipse (fainter
@@ -4385,7 +4429,7 @@ function updateRogue(dt) {
     // lets you off itself)
     if (aboard) {
       b.ready += dt;
-      if (b.ready > 3 && !b.readySaid) { b.readySaid = true; say(`${b.name}'s flower engine is ready. Take off to see it off`, bodyColor(b)); }
+      if (b.ready > 3 && !b.readySaid) { b.readySaid = true; say(`${b.name}'s flower engine is ready. Take off to see it off`, bodyColor(b), 'note'); }
       if (b.ready > 12) rogueLetGo(b);
     }
     else if (time - (b.letGoAt ?? -9) > 1.5 && altitudeOver(b, s.x, s.y) > 35 && time - (b.sailTry ?? -9) > 1) rogueSail(b);
@@ -4422,7 +4466,7 @@ function rogueArrive(b) {
   b.arcs++;
   bodies.push(b); gardens.push(b);
   rogueMove(b);
-  remark(b.arcs === 1 ? `A rogue planet drifts in: ${b.name}` : b.bloomed ? `${b.name} wanders back in, trailing petals` : `${b.name} wanders back in`, bodyColor(b));
+  say(b.arcs === 1 ? `A rogue planet drifts in: ${b.name}` : b.bloomed ? `${b.name} wanders back in, trailing petals` : `${b.name} wanders back in`, bodyColor(b), 'news');
   voice(SCALE[0] / 2, 0.05, 4, 0.8); voice(SCALE[4], 0.02, 4, 1.2, 'triangle');  // a low, slow swell
   return true;
 }
@@ -4444,7 +4488,7 @@ function rogueLetGo(b) {
   burst(s.x - nx * FOOT, s.y - ny * FOOT, 18, { ...petals, color: b.color.join(',') });
   burst(s.x - nx * FOOT, s.y - ny * FOOT, 8, { ...petals, color: pick(b.accents) });
   thud(0.06, 1600, 0.6, 400);  // a soft whoosh
-  say(`${b.name} lets you go. It's ready to sail`, bodyColor(b));
+  say(`${b.name} lets you go. It's ready to sail`, bodyColor(b), 'note');
 }
 // The flower engine: from where it is, it sails out of the system, picking up speed, on a path that keeps clear
 // of you. A flower engine isn't bound by anyone's gravity: it swings round and sails right through the middle
@@ -4473,7 +4517,7 @@ function rogueSail(b) {
   voice(CHORDS[0][0] / 2, 0.05, 5, 0.6);
   arpeggio(SCALE.slice(3, 9), 0.08, 0.06);
   burst(b.px, b.py, 30, { vx: b.pvx, vy: b.pvy, speed: [20, 70], life: [1, 2], color: b.color.join(','), size: 2.6 });
-  say(`${b.name} ${pick(['sails', 'blasts'])} off on its flower engine`, bodyColor(b));
+  say(`${b.name} ${pick(['sails', 'blasts'])} off on its flower engine`, bodyColor(b), 'moment');
 }
 const loopTheLoop = () => { const r = rand(40, 65); return [pick([-1, 1]) / r, TAU * r]; };
 function rogueLeave(b) {
@@ -4491,7 +4535,7 @@ function rogueLeave(b) {
     saveGame();
     return;
   }
-  remark(b.bloomed ? `${b.name} drifts on, trailing petals. It will be back` : `${b.name} drifts on. It will be back`, bodyColor(b));
+  say(b.bloomed ? `${b.name} drifts on, trailing petals. It will be back` : `${b.name} drifts on. It will be back`, bodyColor(b), 'aside');
 }
 // (lab only) the whole path it means to fly, dashed
 function drawRoguePath(b) {
@@ -4586,7 +4630,7 @@ function updateExit(dt) {
       exit.caught = true;
       thud(0.1, 3000, 1.6, 300);  // a rising whoosh
       arpeggio([SCALE[0], SCALE[4], SCALE[7], SCALE[10]], 0.08, 0.06);
-      say('The light takes hold of you', '#d8ceff');
+      say('The light takes hold of you', '#d8ceff', 'moment');
     }
   }
   if (Math.random() < dt * 30) {
@@ -6818,7 +6862,7 @@ function frame(t) {
 resize();
 const savedGame = loadSave();
 if (savedGame) {
-  visited = savedGame.visited || [];
+  visited = savedGame.visited || []; tour = !!savedGame.tour;
   try { enterSystem(savedGame.systemNo, savedGame); } catch (e) { enterSystem(1); }
-} else enterSystem(1);
+} else { tour = FRESH || !(prefs.seen || []).length; enterSystem(1); }
 requestAnimationFrame(frame);

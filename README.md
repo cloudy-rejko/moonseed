@@ -56,8 +56,8 @@ right button for gentle thrust; landed, drag back from the ship to throw seeds.
 
 ## Tiny by design
 
-The whole game is two files: a 2 KB `index.html` and a 377 KB `game.js`. Compressed, that's about
-**122 KB**, smaller than the screenshot at the top of this page.
+The whole game is two files: a 2 KB `index.html` and a 388 KB `game.js`. Compressed, that's about
+**125 KB**, smaller than the screenshot at the top of this page.
 
 There are no images, no sound files, no fonts and no libraries. Every star, planet, plant and comet is
 drawn by code as you play, and every sound is synthesised live by your browser: the engine's hum, the

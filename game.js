@@ -38,6 +38,19 @@ try { Object.assign(prefs, JSON.parse(localStorage.getItem(PREFS_KEY) || '{}'));
 function savePrefs() {
   try { localStorage.setItem(PREFS_KEY, JSON.stringify(prefs)); } catch (e) { /* storage blocked */ }
 }
+// Counts kept for good (with the preferences, so starting over doesn't clear them), shown quietly at the foot of
+// the pause menu: seeds gathered, seeds of yours that took root (planted, thrown, fed to a great tree), and
+// worlds sown (a bare world's first plant from you). Saved along with the game, not on every seed.
+let tallyDirty = false;
+function tally(key, n = 1) {
+  const t = prefs.tally = prefs.tally || {};
+  t[key] = (t[key] || 0) + n; tallyDirty = true;
+}
+function sowSeed(b, a) {  // one of your seeds takes root
+  if (!b.plants.length) tally('worlds');
+  tally('planted');
+  plantSeed(b, a);
+}
 
 // ===== World constants =====
 const ARENA_R = 480;               // past this a soft spring pulls you back
@@ -1453,7 +1466,9 @@ function menuTap(x, y) {
 function drawPauseMenu() {
   const items = menuItems(), pw = Math.min(W - 32, 480), cols = pw >= 340 ? 2 : 1, bh = 44, gap = 8;
   const bw = (pw - gap * (cols - 1)) / cols, rows = 1 + Math.ceil((items.length - 1) / cols);
-  const showH = 116, ph = 56 + rows * (bh + gap) + showH, x0 = W / 2 - pw / 2, y0 = Math.max(70, H / 2 - ph / 2);
+  const tl = prefs.tally || {}, fmt = v => (v || 0).toLocaleString('en-US');
+  const tallyText = tl.gathered ? [`${fmt(tl.gathered)} ${tl.gathered === 1 ? 'seed' : 'seeds'} gathered`, `${fmt(tl.planted)} planted`, `${fmt(tl.worlds)} ${tl.worlds === 1 ? 'world' : 'worlds'} sown`] : null;
+  const showH = tallyText ? 140 : 116, ph = 56 + rows * (bh + gap) + showH, x0 = W / 2 - pw / 2, y0 = Math.max(70, H / 2 - ph / 2);
   ctx.save();
   ctx.fillStyle = 'rgba(3,5,13,0.6)';
   ctx.fillRect(0, 0, W, H);
@@ -1491,6 +1506,12 @@ function drawPauseMenu() {
     drawHull(d, on ? 0.5 : 0, 2 / k);
     ctx.restore();
   });
+  if (tallyText) {  // the lifetime counts, small and dim under the ships (on two lines if a phone is too narrow)
+    ctx.fillStyle = 'rgba(170,195,235,0.55)'; ctx.font = '12px ui-monospace, Consolas, monospace';
+    const one = tallyText.join('  ·  ');
+    if (ctx.measureText(one).width <= pw) ctx.fillText(one, W / 2, sy + 70);
+    else { ctx.fillText(tallyText.slice(0, 2).join('  ·  '), W / 2, sy + 66); ctx.fillText(tallyText[2], W / 2, sy + 82); }
+  }
   ctx.restore();
 }
 function drawPauseIcon() {
@@ -1716,6 +1737,7 @@ function labSetup() { if (system.lab && system.lab.setup) system.lab.setup(); }
 
 // ===== Saving =====
 function saveGame() {
+  if (tallyDirty) { tallyDirty = false; savePrefs(); }
   if (!ship || warp) return;
   const r = (v, d) => Math.round(v * d) / d;
   const data = {
@@ -2042,7 +2064,7 @@ function updateShip(dt) {
           // the first 15 seeds of a landing go in at the usual pace, then each a little quicker (down to
           // twice as fast), so emptying a full load onto a big planet doesn't drag
           s.plantTimer = Math.max(0.06, 0.12 * 0.96 ** Math.max(0, s.plantRun - 15));
-          s.plantRun++; s.seeds--; plantSeed(b, s.landAngle);
+          s.plantRun++; s.seeds--; sowSeed(b, s.landAngle);
         }
       } else if (b.bloomed && s.landedBloomed && s.seeds > TREE_MIN && !s.holdSeeds && !lob && time > (s.lobPause ?? -9) && !b.poly && !b.rogue && time - s.landedAt > 1.5) growTree(b, s, dt);
       return;
@@ -2662,7 +2684,7 @@ function growTree(b, s, dt) {
   s.treeTimer = (s.treeTimer ?? 0) - dt;
   if (s.treeTimer > 0) return;
   s.treeTimer = TREE_RATE;
-  s.seeds--; t.n++;
+  s.seeds--; t.n++; tally('planted');
   const wa = t.a + b.spin, H = treeHeight(b, t);
   if (t.n % 10 === 0) voice(SCALE[(t.n / 10 + 2) % SCALE.length] * 2, 0.03, 1.4, 0.01, 'triangle');
   burst(b.px + Math.cos(wa) * (b.R + H * 0.8), b.py + Math.sin(wa) * (b.R + H * 0.8), 2, { vx: b.pvx, vy: b.pvy, speed: [5, 18], life: [0.3, 0.7], color: t.tip });
@@ -3214,7 +3236,7 @@ function collect(i) {
   const s = ship, m = motes[i];
   removeAt(motes, i);
   if (m.seek) {  // a seed from a light trace: a rising note each, and no chain (it's a gift, not a score)
-    s.seeds++;
+    s.seeds++; tally('gathered');
     note(SCALE[(4 + (m.seekNo || 0)) % SCALE.length] * 2, 0.06, 1.4);
     burst(m.x, m.y, 7, { vx: s.vx, vy: s.vy, speed: [15, 45], life: [0.2, 0.6], color: '200,240,255' });
     return;
@@ -3222,7 +3244,8 @@ function collect(i) {
   chain = time - lastPickup < CHAIN_WINDOW ? chain + 1 : 0;
   lastPickup = time;
   const bonus = chain > 0 && (chain + 1) % 5 === 0;
-  s.seeds += (m.gold ? 2 : 1) + (bonus ? 2 : 0);
+  const got = (m.gold ? 2 : 1) + (bonus ? 2 : 0);
+  s.seeds += got; tally('gathered', got);
   s.fuel = Math.min(FUEL_MAX, s.fuel + MOTE_FUEL);
   note(SCALE[chain % SCALE.length] * (m.gold ? 2 : 1), bonus ? 0.13 : 0.09, bonus ? 1.8 : 1.1);
   burst(m.x, m.y, bonus ? 18 : 7, {
@@ -3256,7 +3279,7 @@ function updateComets(dt) {
     }
     if (!c.caught && Math.hypot(s.x - c.x, s.y - c.y) < 18) {
       c.caught = true;
-      s.seeds += c.piece ? 2 : 5;
+      s.seeds += c.piece ? 2 : 5; tally('gathered', c.piece ? 2 : 5);
       burst(c.x, c.y, 30, { vx: c.vx, vy: c.vy, speed: [30, 120], life: [0.4, 1], color: '255,230,160' });
       arpeggio([SCALE[5], SCALE[7], SCALE[9], SCALE[10]], 0.06, 0.08);
       say(c.piece ? 'You caught a pearl! +2 seeds' : 'You caught the comet! +5 seeds', '#ffe7a0', 'moment');
@@ -3554,7 +3577,7 @@ function updateLob(dt) {
     const w = sowing[i], b = w.b;
     while (w.left > 0 && time >= w.next) {
       const a = w.la + b.spin + rand(-w.w / 2, w.w / 2);
-      plantSeed(b, a);
+      sowSeed(b, a);
       w.left--; w.next += w.gap;
       burst(b.px + Math.cos(a) * b.R, b.py + Math.sin(a) * b.R, 2, { vx: b.pvx, vy: b.pvy, dir: a, spread: 1.2, speed: [8, 25], life: [0.2, 0.5], color: SEED_RGB });
       if (w.left % 4 === 0) voice(SCALE[(b.plants.length + 4) % SCALE.length] * 2, 0.02, 0.9, 0.01, 'triangle');

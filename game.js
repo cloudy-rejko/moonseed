@@ -46,10 +46,10 @@ function tally(key, n = 1) {
   const t = prefs.tally = prefs.tally || {};
   t[key] = (t[key] || 0) + n; tallyDirty = true;
 }
-function sowSeed(b, a) {  // one of your seeds takes root
+function sowSeed(b, a, soft = 0) {  // one of your seeds takes root (soft: the nth flower of a feather-soft landing)
   if (!b.plants.length) tally('worlds');
   tally('planted');
-  plantSeed(b, a);
+  plantSeed(b, a, soft);
 }
 
 // ===== World constants =====
@@ -695,6 +695,18 @@ LAB_SYSTEMS.unshift(
     },
   },
 );
+// soft landings, legs and dust (branch touches), in front of everything
+LAB_SYSTEMS.unshift(
+  {
+    name: 'Soft landings', make: (n, prev) => labRoomyMoon(n, prev, 'classic', null),
+    desc: 'You hover over your planet with 150 seeds. Touch down softly (the brake will do) and the first seeds come up as flowers round your feet. Watch the legs fold away as you fly off and come down as you near a garden, and the dust your engine blows along the ground. The moon is part grown',
+    setup() {
+      const h = gardens[0], m = gardens[1], a = -Math.PI / 2, r = h.R + FOOT + 55;
+      Object.assign(ship, { landed: null, x: h.px + Math.cos(a) * r, y: h.py + Math.sin(a) * r, vx: h.pvx, vy: h.pvy, angle: a, angVel: 0, holdSeeds: false, airborne: true, tow: null, slide: null, seeds: 150 });
+      if (m) { while (m.plants.length < m.maxPlants * 0.7) plantSeed(m, rand(0, TAU)); message = null; waves = []; particles = []; }
+    },
+  },
+);
 // lab systems with their big moon kept clear of moonlets (so it has room to hold an orbit), no crystal
 function labRoomyMoon(n, prev, archetype, feature) {
   const sys = rollSystem(n, prev, { archetype, feature });
@@ -1035,9 +1047,15 @@ function nearestSurface(x, y) {
 
 // ===== Ships (cosmetic) =====
 // Drawn in a local frame where the nose points to -y and the feet sit at y = 7.
+// The legs fold up against the hull in flight and come down as the ground nears (LEG.k: 0 folded, 1 down), and
+// a touchdown squats on them for a moment (LEG.dip).
+const LEG = { k: 1, dip: 0 };
 function legs(x0, y0, x1) {
-  ctx.moveTo(-x0, y0); ctx.lineTo(-x1, 7); ctx.moveTo(-x1 - 1.5, 7); ctx.lineTo(-x1 + 1.5, 7);
-  ctx.moveTo(x0, y0); ctx.lineTo(x1, 7); ctx.moveTo(x1 - 1.5, 7); ctx.lineTo(x1 + 1.5, 7);
+  const k = LEG.k;
+  for (const sd of [-1, 1]) {
+    const fx = sd * mix(x0 + (x1 - x0) * 0.25, x1, k), fy = mix(y0 + (7 - y0) * 0.35, 7 - LEG.dip, k);
+    ctx.moveTo(sd * x0, y0); ctx.lineTo(fx, fy); ctx.moveTo(fx - 1.5 * k, fy); ctx.lineTo(fx + 1.5 * k, fy);
+  }
 }
 const SHIPS = [
   {
@@ -2047,6 +2065,23 @@ function updateShip(dt) {
     });
   }
 
+  // low over the ground with the engine pointing down at it, the exhaust blows dust out along the surface
+  if (s.throttle > 0.15) {
+    const near = s.landed ? { b: s.landed, alt: 0 } : nearestSurface(s.x, s.y);
+    if (near.b && near.alt < 28) {
+      const b = near.b, la = Math.atan2(s.y - b.py, s.x - b.px), down = dx * Math.cos(la) + dy * Math.sin(la);
+      s.blowAcc = (s.blowAcc || 0) + (down > 0.5 ? s.throttle * (1 - near.alt / 28) * 46 * dt : 0);
+      if (s.blowAcc >= 1) {
+        const k = Math.floor(s.blowAcc), [svx, svy] = surfaceVel(b, la), side = Math.random() < 0.5 ? -1 : 1;
+        s.blowAcc -= k;
+        burst(b.px + Math.cos(la) * b.R, b.py + Math.sin(la) * b.R, k, {
+          vx: svx, vy: svy, dir: la + side * 1.3, spread: 0.35, speed: [18, 30 + 45 * s.throttle], life: [0.5, 1.1],
+          color: b.color.map(c => Math.round(mix(c, 235, 0.6))).join(','), size: 2.2, grav: true,
+        });
+      }
+    }
+  }
+
   if (s.landed) {
     const b = s.landed, nx = Math.cos(s.landAngle), ny = Math.sin(s.landAngle);
     const lift = tx * nx + ty * ny, surfaceG = b.gm / (b.R + FOOT) ** 2;
@@ -2064,7 +2099,7 @@ function updateShip(dt) {
           // the first 15 seeds of a landing go in at the usual pace, then each a little quicker (down to
           // twice as fast), so emptying a full load onto a big planet doesn't drag
           s.plantTimer = Math.max(0.06, 0.12 * 0.96 ** Math.max(0, s.plantRun - 15));
-          s.plantRun++; s.seeds--; sowSeed(b, s.landAngle);
+          s.plantRun++; s.seeds--; sowSeed(b, s.landAngle, s.soft > 0 ? SOFT.n - s.soft-- + 1 : 0);
         }
       } else if (b.bloomed && s.landedBloomed && s.seeds > TREE_MIN && !s.holdSeeds && !lob && time > (s.lobPause ?? -9) && !b.poly && !b.rogue && time - s.landedAt > 1.5) growTree(b, s, dt);
       return;
@@ -2166,6 +2201,9 @@ function land(b, la, speed) {
   const s = ship;
   s.landed = b; s.landAngle = la; s.angVel = 0; s.plantTimer = 0.3; s.plantRun = 0; s.snapping = false; s.landedAt = time; s.slide = null;
   s.landedBloomed = b.bloomed;  // (a great tree only grows on a garden that was already in bloom when you landed)
+  // a feather-soft touchdown is remembered by the garden: the first few seeds you plant there come up as
+  // flowers round your feet. No line of text, no score.
+  s.soft = speed < SOFT_LANDING * cfg.landSpeed ? SOFT.n : 0;
   parkShip();
   const [c0, c1, c2] = b.color;
   burst(s.x - Math.cos(la) * FOOT, s.y - Math.sin(la) * FOOT, 6 + speed * 0.6, {
@@ -2196,7 +2234,7 @@ function land(b, la, speed) {
     say(`${b.name} is already in full bloom`, bodyColor(b), 'note');
     b.fullSaidAt = time; b.fullHint = false;
   }
-  if (speed < cfg.landSpeed * 0.3) {
+  if (s.soft) {
     burst(s.x, s.y, 16, { vx: s.vx, vy: s.vy, speed: [20, 60], life: [0.4, 0.9], color: `${c0},${c1},${c2}` });
     arpeggio([SCALE[0], SCALE[2], SCALE[4]], 0.07, 0.06);
   }
@@ -2252,6 +2290,9 @@ function spitOut(b, nx, ny) {
 // behind you, with one soft scrape that follows the slip (see updateEngineSound). Skimming up and back down a
 // little stays in it; it ends when you're properly clear of the ground (4 units up), or when you've slid to a
 // rest with the engine quiet, which is then one ordinary landing.
+// the flowers of a soft landing: n of them in pairs either side of the feet, from near to far out (in units)
+const SOFT = { n: 6, near: 14, far: 22 };
+const SOFT_LANDING = 0.4;  // under this share of the landing speed, a touchdown is a soft one (the brake lands at 0.2-0.4)
 const SKID_MIN = 10;  // a sideways mismatch above this, on touchdown, skids
 const touching = s => time - (s.touchAt ?? -9) < 0.15;
 function slideStep(b, nx, ny, svx, svy, lift, dt) {
@@ -3116,7 +3157,7 @@ function pickKind(bloom) {
   return 0;
 }
 
-function plantSeed(b, near) {
+function plantSeed(b, near, soft = 0) {
   const [c0, c1, c2] = b.color;
   if (b.plants.length >= b.maxPlants) {
     const p = pick(b.plants);
@@ -3129,7 +3170,12 @@ function plantSeed(b, near) {
     const nearby = b.plants.filter(p => Math.abs(angleDiff(p.a, local)) < reach);
     const host = nearby.length && Math.random() < 0.7 ? pick(nearby) : null;
     const crowded = host && b.plants.filter(p => Math.abs(angleDiff(p.a, host.a)) < width).length > 5;
-    const a = host && !crowded ? host.a + rand(-0.6, 0.6) * width : local + rand(-reach, reach);
+    let a = host && !crowded ? host.a + rand(-0.6, 0.6) * width : local + rand(-reach, reach);
+    // the flowers of a soft landing come up in pairs either side of your feet, clear of them, working outward
+    const pair = Math.floor((soft - 1) / 2);
+    if (soft && !b.poly) a = local + (soft % 2 ? 1 : -1) * (mix(SOFT.near, SOFT.far, pair / Math.max(1, Math.ceil(SOFT.n / 2) - 1)) + rand(-1, 1)) / b.R;
+    // (the nearest pair stays short, so its heads don't stand against the hull; the ones further out are tall)
+    const kind = soft && !b.poly ? 4 : pickKind(bloomOf(b)), tall = soft && !b.poly ? pair > 0 && Math.random() < 0.85 : Math.random() < 0.15;
     // now and then (about 1 seed in 400, at most once per garden, never on crystal) a bamboo clump
     // comes up instead, twice as tall as anything else
     // and once in a while (1 in 20) a second clump follows a few seconds later, if you're still planting there
@@ -3137,9 +3183,10 @@ function plantSeed(b, near) {
     const twin = !!first && b.bambooTwin && time >= b.bambooTwin && time < b.bambooTwin + 10;
     const bamboo = twin || (!b.poly && Math.random() < 0.0025 && !first);
     b.plants.push({
-      a: twin ? first.a + (Math.random() < 0.5 ? -1 : 1) * rand(10, 16) / b.R : a, h: bamboo ? rand(34, 38) : Math.random() < 0.15 ? rand(12, 17) : rand(4, 9), grow: 0, sway: rand(0, TAU), flip: Math.random() < 0.5 ? -1 : 1,
-      kind: bamboo ? BAMBOO : pickKind(bloomOf(b)), tip: Math.random() < 0.25 ? pick(b.accents) : `${c0},${c1},${c2}`,
+      a: twin ? first.a + (Math.random() < 0.5 ? -1 : 1) * rand(10, 16) / b.R : a, h: bamboo ? rand(34, 38) : tall ? rand(12, 17) : rand(4, 9), grow: 0, sway: rand(0, TAU), flip: Math.random() < 0.5 ? -1 : 1,
+      kind: bamboo ? BAMBOO : kind, tip: soft || Math.random() < 0.25 ? pick(b.accents) : `${c0},${c1},${c2}`,
     });
+
     if (twin) { b.bambooTwin = null; say('Double bamboo! What does it mean?', `rgb(${c0},${c1},${c2})`, 'moment'); }  // (a moment: rare enough never to miss)
     else if (bamboo) {
       say(`Bamboo is sprouting on ${b.name}!`, `rgb(${c0},${c1},${c2})`, 'note');
@@ -6542,7 +6589,18 @@ function drawShip() {
   ctx.rotate(s.angle + Math.PI / 2);
   ctx.scale(SHIP_SCALE, SHIP_SCALE);
   if (s.sailOpen > 0.01) drawSail(s);
+  // legs: down when landed or low over a garden, folded away in open flight
+  const near = s.landed ? null : nearestSurface(s.x, s.y);
+  const want = s.landed ? 1 : near.b ? smooth(clamp((75 - near.alt) / 45, 0, 1)) : 0;
+  s.legK = s.legK === undefined ? want : s.legK + (want - s.legK) * (paused ? 0 : 0.14);
+  LEG.k = s.legK;
+  if (s.landed) {
+    const t = time - s.landedAt;
+    LEG.dip = t < 1.2 ? 1.3 * Math.exp(-6 * t) * Math.cos(15 * t) : 0;
+    ctx.translate(0, LEG.dip);
+  }
   drawHull(SHIPS[prefs.ship], s.throttle, 2.1 * px / SHIP_SCALE);
+  LEG.k = 1; LEG.dip = 0;
   ctx.restore();
 }
 
